@@ -49,6 +49,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+
 class CommunityCareerExplorerAgent:
     def __init__(self):
         # API setup
@@ -63,8 +64,82 @@ class CommunityCareerExplorerAgent:
         # Initialize database
         if 'community_db' not in st.session_state:
             st.session_state.community_db = MultiFamilyDatabase()
+
+            # Auto-create sample families if none exist
+            self.setup_sample_families_if_needed()
+
         self.db = st.session_state.community_db
 
+    def setup_sample_families_if_needed(self):
+        """Create sample families if database is empty"""
+        try:
+            families = st.session_state.community_db.get_all_families()
+
+            if len(families) == 0:
+                # Create sample families for demo
+                db = st.session_state.community_db
+
+                # Smith Family (Rosa & Reuben)
+                smith_family = db.create_family("Smith Family", "smith@example.com", "Newcastle, NSW")
+
+                db.add_student(smith_family, {
+                    'name': 'Rosa',
+                    'age': 16,
+                    'year_level': 11,
+                    'interests': ['ancient history', 'biological anthropology', 'writing'],
+                    'preferences': ['lab-based learning'],
+                    'timeline': 'applying in 12 months',
+                    'location_preference': 'NSW/ACT',
+                    'career_considerations': ['research opportunities'],
+                    'goals': ['Find university with lab work']
+                })
+
+                db.add_student(smith_family, {
+                    'name': 'Reuben',
+                    'age': 18,
+                    'year_level': 12,
+                    'interests': ['modern history', 'chinese studies', 'teaching'],
+                    'preferences': ['army reserves funding'],
+                    'timeline': 'applying now',
+                    'location_preference': 'Newcastle/NSW',
+                    'career_considerations': ['army reserves compatibility'],
+                    'goals': ['Secure teaching placement']
+                })
+
+                # Jones Family (Emma)
+                jones_family = db.create_family("Jones Family", "jones@example.com", "Sydney, NSW")
+
+                db.add_student(jones_family, {
+                    'name': 'Emma',
+                    'age': 17,
+                    'year_level': 12,
+                    'interests': ['psychology', 'social work', 'counseling'],
+                    'preferences': ['helping others'],
+                    'timeline': 'applying now',
+                    'location_preference': 'Sydney/NSW',
+                    'career_considerations': ['mental health focus'],
+                    'goals': ['University psychology program']
+                })
+
+                # Brown Family (Alex)
+                brown_family = db.create_family("Brown Family", "brown@example.com", "Canberra, ACT")
+
+                db.add_student(brown_family, {
+                    'name': 'Alex',
+                    'age': 16,
+                    'year_level': 11,
+                    'interests': ['computer science', 'engineering', 'technology'],
+                    'preferences': ['hands-on projects'],
+                    'timeline': 'applying in 12 months',
+                    'location_preference': 'ACT/NSW',
+                    'career_considerations': ['tech industry'],
+                    'goals': ['Top CS program']
+                })
+
+                print("✅ Sample families created for cloud deployment")
+
+        except Exception as e:
+            print(f"⚠️ Error setting up sample families: {e}")
 
 def create_community_dashboard():
     """Create community platform dashboard"""
@@ -327,30 +402,34 @@ def create_family_overview(students):
 def main():
     """Main application function"""
 
-    # Initialize session state
-    if 'agent' not in st.session_state:
-        st.session_state.agent = CommunityCareerExplorerAgent()
+    try:
+        # Initialize session state
+        if 'agent' not in st.session_state:
+            st.session_state.agent = CommunityCareerExplorerAgent()
 
-    # Create dashboard
-    create_community_dashboard()
+        # Create dashboard
+        create_community_dashboard()
 
-    # Show community analytics
-    create_community_analytics()
+        # Show community analytics
+        create_community_analytics()
 
-    # Main application logic
-    if 'selected_family_id' not in st.session_state:
-        # Show family selection or registration
-        if 'show_family_registration' in st.session_state:
-            create_family_registration()
+        # Main application logic
+        if 'selected_family_id' not in st.session_state:
+            # Show family selection or registration
+            if 'show_family_registration' in st.session_state:
+                create_family_registration()
+            else:
+                create_family_selector()
         else:
-            create_family_selector()
-    else:
-        # Show family interface
-        create_family_interface(
-            st.session_state.selected_family_id,
-            st.session_state.selected_family_name
-        )
+            # Show family interface
+            create_family_interface(
+                st.session_state.selected_family_id,
+                st.session_state.selected_family_name
+            )
 
+    except Exception as e:
+        st.error(f"❌ Application Error: {str(e)}")
+        st.write("Please refresh the page. If the problem persists, contact support.")
 
 if __name__ == "__main__":
     main()
