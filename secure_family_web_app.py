@@ -10,354 +10,409 @@ from multi_family_database import MultiFamilyDatabase
 
 # Page configuration
 st.set_page_config(
-    page_title="SecureCareer | Professional Family Career Guidance",
-    page_icon="🎯",
+    page_title="CareerPath | Family Career Guidance",
+    page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Professional CSS with modern design
+# Clean, professional CSS inspired by Khan Academy
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap');
 
     /* Global Styles */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        font-family: 'Inter', sans-serif;
+        background-color: #f7f8fa;
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    .main-container {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 1rem;
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+    /* Remove Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display: none;}
+    header[data-testid="stHeader"] {
+        background: rgba(0,0,0,0);
+        height: 0rem;
     }
 
-    /* Header Styles */
-    .hero-header {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        padding: 3rem 2rem;
-        border-radius: 20px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2rem;
-        position: relative;
-        overflow: hidden;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    /* Main container */
+    .main-content {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin: 24px auto;
+        max-width: 1200px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e5e5;
     }
 
-    .hero-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-        opacity: 0.1;
+    /* Header */
+    .site-header {
+        background: white;
+        border-bottom: 1px solid #e5e5e5;
+        padding: 16px 0;
+        margin-bottom: 32px;
     }
 
-    .hero-title {
-        font-size: 3.5rem;
-        font-weight: 700;
-        margin-bottom: 1rem;
-        background: linear-gradient(135deg, #fff 0%, #f1c40f 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    .hero-subtitle {
-        font-size: 1.4rem;
-        font-weight: 300;
-        opacity: 0.9;
-        margin-bottom: 2rem;
-    }
-
-    /* Login Container */
-    .login-container {
-        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-        padding: 3rem;
-        border-radius: 25px;
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(0, 0, 0, 0.05);
-        position: relative;
-        overflow: hidden;
-        margin: 2rem 0;
-    }
-
-    .login-container::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: conic-gradient(from 45deg, transparent, rgba(52, 152, 219, 0.03), transparent);
-        animation: rotate 20s linear infinite;
-    }
-
-    @keyframes rotate {
-        to { transform: rotate(360deg); }
-    }
-
-    .login-title {
-        font-size: 2.5rem;
-        font-weight: 600;
-        color: #2c3e50;
-        margin-bottom: 1rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    .login-subtitle {
-        font-size: 1.2rem;
-        color: #7f8c8d;
-        margin-bottom: 2rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    /* Security Badges */
-    .security-badges {
+    .site-header .container {
+        max-width: 1200px;
+        margin: 0 auto;
         display: flex;
-        justify-content: center;
-        gap: 1rem;
-        margin: 2rem 0;
-        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
     }
 
-    .security-badge {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        color: white;
-        padding: 0.8rem 1.5rem;
-        border-radius: 25px;
-        font-weight: 500;
-        font-size: 0.95rem;
-        box-shadow: 0 10px 20px rgba(231, 76, 60, 0.3);
-        transform: translateY(0);
-        transition: all 0.3s ease;
-        position: relative;
-        z-index: 1;
+    .logo {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1c4980;
+        text-decoration: none;
     }
 
-    .security-badge:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 30px rgba(231, 76, 60, 0.4);
+    .logo-subtitle {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 400;
+        margin-left: 8px;
     }
 
-    .security-badge.success {
-        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-        box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3);
+    /* Typography */
+    .page-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1c4980;
+        margin-bottom: 8px;
+        line-height: 1.2;
     }
 
-    .security-badge.primary {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-        box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+    .page-subtitle {
+        font-size: 18px;
+        color: #6b7280;
+        margin-bottom: 32px;
+        line-height: 1.4;
     }
 
-    /* Form Styles */
+    .section-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 16px;
+        margin-top: 32px;
+    }
+
+    .section-subtitle {
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 24px;
+    }
+
+    /* Cards */
+    .card {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 16px;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    .card-subtitle {
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 16px;
+    }
+
+    /* Forms */
+    .form-container {
+        background: #f9fafb;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 32px;
+        margin: 24px 0;
+    }
+
+    .form-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+
+    .form-subtitle {
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 32px;
+        text-align: center;
+    }
+
+    /* Input styling */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea,
     .stSelectbox > div > div > select {
-        border: 2px solid #ecf0f1;
-        border-radius: 12px;
-        padding: 1rem;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 12px 16px;
+        font-size: 16px;
+        font-family: 'Lato', sans-serif;
+        background: white;
+        transition: border-color 0.2s ease;
     }
 
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus,
     .stSelectbox > div > div > select:focus {
-        border-color: #3498db;
-        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        transform: translateY(-2px);
+        border-color: #1c4980;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(28, 73, 128, 0.1);
     }
 
-    /* Button Styles */
+    /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        background-color: #1c4980;
         color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.8rem 2rem;
+        border: 1px solid #1c4980;
+        border-radius: 6px;
+        padding: 12px 24px;
+        font-size: 16px;
         font-weight: 600;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
-        transform: translateY(0);
+        font-family: 'Lato', sans-serif;
+        transition: all 0.2s ease;
+        cursor: pointer;
     }
 
     .stButton > button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 30px rgba(52, 152, 219, 0.4);
-        background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+        background-color: #164373;
+        border-color: #164373;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .stButton > button:active {
-        transform: translateY(-1px);
+        transform: translateY(0);
     }
 
-    /* Family Header */
+    /* Secondary button */
+    .secondary-button {
+        background-color: white !important;
+        color: #1c4980 !important;
+        border: 1px solid #1c4980 !important;
+    }
+
+    .secondary-button:hover {
+        background-color: #f9fafb !important;
+    }
+
+    /* Success/Error styling */
+    .stSuccess {
+        background-color: #f0f9ff;
+        border: 1px solid #0ea5e9;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    .stError {
+        background-color: #fef2f2;
+        border: 1px solid #ef4444;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    /* Security features */
+    .security-features {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        margin: 32px 0;
+        flex-wrap: wrap;
+    }
+
+    .security-feature {
+        text-align: center;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .security-icon {
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+
+    .security-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
+    }
+
+    .security-desc {
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+
+    /* Family header */
     .family-header {
-        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-        padding: 2rem;
-        border-radius: 20px;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 20px 40px rgba(39, 174, 96, 0.2);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .family-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 200px;
-        height: 200px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-        transform: translate(50px, -50px);
+        background: #f0f9ff;
+        border: 1px solid #0ea5e9;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 32px;
     }
 
     .family-title {
-        font-size: 2rem;
+        font-size: 24px;
         font-weight: 600;
-        margin-bottom: 0.5rem;
-        position: relative;
-        z-index: 1;
+        color: #0c4a6e;
+        margin-bottom: 8px;
     }
 
-    .family-code {
-        font-size: 1.1rem;
-        opacity: 0.9;
-        font-weight: 400;
-        position: relative;
-        z-index: 1;
+    .family-details {
+        font-size: 16px;
+        color: #075985;
     }
 
-    /* Student Cards */
+    /* Student cards */
     .student-card {
-        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-        padding: 2rem;
-        border-radius: 20px;
-        border: 1px solid #ecf0f1;
-        margin: 1rem 0;
-        transition: all 0.3s ease;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-        position: relative;
-        overflow: hidden;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 16px;
+        background: white;
+        transition: all 0.2s ease;
     }
 
     .student-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        border-color: #1c4980;
+        box-shadow: 0 2px 8px rgba(28, 73, 128, 0.1);
     }
 
-    .student-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 4px;
-        height: 100%;
-        background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+    .student-name {
+        font-size: 20px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
     }
 
-    /* Chat Interface */
+    .student-details {
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.5;
+    }
+
+    /* Access code display */
+    .access-code-container {
+        background: #f0f9ff;
+        border: 2px dashed #0ea5e9;
+        border-radius: 8px;
+        padding: 32px;
+        text-align: center;
+        margin: 24px 0;
+    }
+
+    .access-code {
+        font-size: 36px;
+        font-weight: 700;
+        color: #0c4a6e;
+        letter-spacing: 4px;
+        font-family: 'Monaco', 'Menlo', monospace;
+        margin: 16px 0;
+    }
+
+    .access-code-label {
+        font-size: 16px;
+        color: #075985;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .access-code-note {
+        font-size: 14px;
+        color: #6b7280;
+        margin-top: 16px;
+    }
+
+    /* Chat interface */
     .chat-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 1rem 0;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 24px 0;
+        background: white;
     }
 
     .chat-header {
-        background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 20px rgba(155, 89, 182, 0.3);
+        border-bottom: 1px solid #e5e5e5;
+        padding-bottom: 16px;
+        margin-bottom: 24px;
     }
 
-    /* Success Messages */
-    .success-container {
-        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 20px;
-        margin: 2rem 0;
-        box-shadow: 0 15px 30px rgba(46, 204, 113, 0.3);
-        text-align: center;
+    .chat-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
     }
 
-    .access-code-display {
-        background: rgba(255, 255, 255, 0.2);
-        padding: 2rem;
-        border-radius: 15px;
-        margin: 1rem 0;
-        border: 2px dashed rgba(255, 255, 255, 0.5);
+    .chat-subtitle {
+        font-size: 14px;
+        color: #6b7280;
     }
 
-    .access-code-text {
-        font-size: 3rem;
-        font-weight: 700;
-        letter-spacing: 0.3rem;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    /* Response styling */
+    .ai-response {
+        background: #f9fafb;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 16px 0;
     }
 
-    /* Responsive Design */
+    .ai-response-header {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1c4980;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Responsive design */
     @media (max-width: 768px) {
-        .hero-title {
-            font-size: 2.5rem;
+        .main-content {
+            margin: 16px;
+            padding: 24px;
         }
 
-        .login-container {
-            padding: 2rem;
-            margin: 1rem 0;
+        .site-header .container {
+            padding: 0 24px;
         }
 
-        .security-badges {
+        .security-features {
             flex-direction: column;
-            align-items: center;
+            gap: 16px;
         }
 
-        .access-code-text {
-            font-size: 2rem;
-            letter-spacing: 0.2rem;
+        .access-code {
+            font-size: 24px;
+            letter-spacing: 2px;
         }
-    }
-
-    /* Loading Animations */
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-
-    .loading {
-        animation: pulse 2s infinite;
-    }
-
-    /* Remove Streamlit Branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display:none;}
-
-    /* Hide Streamlit Header */
-    header[data-testid="stHeader"] {
-        background: rgba(0,0,0,0);
-        height: 0rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -365,7 +420,6 @@ st.markdown("""
 
 class SecureFamilyCareerAgent:
     def __init__(self):
-        # API setup
         try:
             api_key = st.secrets["ANTHROPIC_API_KEY"]
         except:
@@ -374,89 +428,100 @@ class SecureFamilyCareerAgent:
 
         self.client = anthropic.Anthropic(api_key=api_key)
 
-        # Initialize database
         if 'secure_db' not in st.session_state:
             st.session_state.secure_db = MultiFamilyDatabase()
         self.db = st.session_state.secure_db
 
 
-def create_hero_header():
-    """Create stunning hero header"""
+def create_header():
+    """Clean site header"""
     st.markdown("""
-    <div class="hero-header">
-        <div class="hero-title">🎯 SecureCareer</div>
-        <div class="hero-subtitle">Professional AI-Powered Career Guidance Platform</div>
-        <div style="font-size: 1rem; opacity: 0.8;">
-            Trusted by families across Australia • Powered by live government data • Privacy-first design
+    <div class="site-header">
+        <div class="container">
+            <div>
+                <span class="logo">📚 CareerPath</span>
+                <span class="logo-subtitle">Professional Career Guidance Platform</span>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
 def create_family_login():
-    """Professional family login interface"""
-    create_hero_header()
+    """Clean, professional login interface"""
+    create_header()
 
-    st.markdown('<div class="main-container">', unsafe_allow_html=True)
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
+    # Page header
     st.markdown("""
-    <div class="login-title">🔐 Secure Family Access</div>
-    <div class="login-subtitle">Enter your private family code to access your personalized career guidance dashboard</div>
+    <div class="page-title">Secure Family Access</div>
+    <div class="page-subtitle">Enter your family access code to view your personalized career guidance dashboard</div>
     """, unsafe_allow_html=True)
 
-    # Security badges
+    # Security features
     st.markdown("""
-    <div class="security-badges">
-        <div class="security-badge">🔒 End-to-End Encrypted</div>
-        <div class="security-badge success">👨‍👩‍👧‍👦 Family Private</div>
-        <div class="security-badge primary">🛡️ Data Protected</div>
+    <div class="security-features">
+        <div class="security-feature">
+            <div class="security-icon">🔒</div>
+            <div class="security-title">Private & Secure</div>
+            <div class="security-desc">Your family's data is encrypted and completely private</div>
+        </div>
+        <div class="security-feature">
+            <div class="security-icon">👨‍👩‍👧‍👦</div>
+            <div class="security-title">Family Only</div>
+            <div class="security-desc">Only your family can access your students and conversations</div>
+        </div>
+        <div class="security-feature">
+            <div class="security-icon">🛡️</div>
+            <div class="security-title">Data Protected</div>
+            <div class="security-desc">We never share your information with other families</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Professional login form
-    with st.form("family_login", clear_on_submit=False):
-        st.markdown("### 🚀 Access Your Family Dashboard")
+    # Login form
+    st.markdown('<div class="form-container">', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="form-title">Access Your Family Dashboard</div>
+    <div class="form-subtitle">Use the 8-character code provided when you registered</div>
+    """, unsafe_allow_html=True)
 
+    with st.form("family_login"):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             access_code = st.text_input(
                 "Family Access Code",
-                placeholder="Enter your 8-character code",
-                help="Your unique family identifier (e.g., SMITH123)",
-                label_visibility="collapsed"
+                placeholder="e.g., SMITH123",
+                help="The unique 8-character code for your family"
             )
 
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            submitted = st.form_submit_button("🎯 Launch My Family Dashboard", use_container_width=True)
+            submitted = st.form_submit_button("Access My Family", use_container_width=True)
 
         if submitted and access_code:
-            with st.spinner("🔍 Authenticating your family access..."):
-                db = st.session_state.secure_db
-                family_info = db.verify_family_access(access_code.upper())
+            db = st.session_state.secure_db
+            family_info = db.verify_family_access(access_code.upper())
 
-                if family_info:
-                    st.session_state.authenticated_family = family_info
-                    st.success(f"✅ Authentication successful! Welcome back, {family_info['family_name']}!")
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid access code. Please verify your family code and try again.")
+            if family_info:
+                st.session_state.authenticated_family = family_info
+                st.success(f"Welcome back, {family_info['family_name']}!")
+                st.rerun()
+            else:
+                st.error("Invalid access code. Please check your code and try again.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Professional registration section
-    st.markdown("""
-    <div style="text-align: center; margin: 2rem 0;">
-        <h3 style="color: #2c3e50;">New to SecureCareer?</h3>
-        <p style="color: #7f8c8d; font-size: 1.1rem;">Join thousands of Australian families getting personalized career guidance</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Registration section
+    st.markdown('<div class="section-title">New to CareerPath?</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Join families across Australia getting professional career guidance</div>',
+        unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🏠 Register Your Family", use_container_width=True, type="secondary"):
+        if st.button("Register Your Family", use_container_width=True, type="secondary"):
             st.session_state.show_registration = True
             st.rerun()
 
@@ -464,32 +529,30 @@ def create_family_login():
 
 
 def create_family_registration():
-    """Professional family registration"""
-    create_hero_header()
+    """Clean family registration form"""
+    create_header()
 
-    st.markdown('<div class="main-container">', unsafe_allow_html=True)
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
     st.markdown("""
-    <div class="login-title" style="text-align: center;">🏠 Family Registration</div>
-    <div style="text-align: center; color: #7f8c8d; margin-bottom: 2rem; font-size: 1.1rem;">
-        Create your secure family account and get instant access to AI-powered career guidance
-    </div>
+    <div class="page-title">Family Registration</div>
+    <div class="page-subtitle">Create your secure family account and get instant access to professional career guidance</div>
     """, unsafe_allow_html=True)
 
-    with st.form("secure_family_registration"):
-        st.markdown("### 👨‍👩‍👧‍👦 Family Information")
+    st.markdown('<div class="form-container">', unsafe_allow_html=True)
+
+    with st.form("family_registration"):
+        st.markdown('<div class="section-title">Family Information</div>', unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
-
         with col1:
             family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family")
             email = st.text_input("Email Address *", placeholder="your.email@example.com")
 
         with col2:
             location = st.text_input("Location", placeholder="e.g., Sydney, NSW")
-            phone = st.text_input("Phone (Optional)", placeholder="e.g., 0412 345 678")
 
-        st.markdown("### 🎓 First Student Profile")
+        st.markdown('<div class="section-title">First Student</div>', unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -498,88 +561,72 @@ def create_family_registration():
             year_level = st.selectbox("Year Level", [9, 10, 11, 12], index=2)
 
         with col2:
-            interests = st.text_area("Interests & Subjects",
-                                     placeholder="e.g., psychology, social work, helping others, science")
-            timeline = st.selectbox("University Application Timeline",
+            interests = st.text_area("Interests", placeholder="e.g., psychology, science, helping others")
+            timeline = st.selectbox("University Timeline",
                                     ["Applying in 2+ years", "Applying in 12 months", "Applying in 6 months",
                                      "Applying now"])
-            location_preference = st.text_input("Preferred Study Location", placeholder="e.g., NSW/ACT/VIC")
+            location_preference = st.text_input("Study Location Preference", placeholder="e.g., NSW/ACT")
 
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            submitted = st.form_submit_button("🎯 Create Secure Family Account", use_container_width=True)
+            submitted = st.form_submit_button("Create Family Account", use_container_width=True)
 
         if submitted:
             if family_name and student_name and email:
-                with st.spinner("🔒 Creating your secure family account..."):
-                    db = st.session_state.secure_db
+                db = st.session_state.secure_db
 
-                    # Create family with access code
-                    family_id, access_code = db.create_family(family_name, email, location)
+                family_id, access_code = db.create_family(family_name, email, location)
 
-                    # Add student
-                    student_data = {
-                        'name': student_name,
-                        'age': age,
-                        'year_level': year_level,
-                        'interests': [i.strip() for i in interests.split(',') if i.strip()],
-                        'preferences': [],
-                        'timeline': timeline,
-                        'location_preference': location_preference,
-                        'career_considerations': [],
-                        'goals': []
-                    }
+                student_data = {
+                    'name': student_name,
+                    'age': age,
+                    'year_level': year_level,
+                    'interests': [i.strip() for i in interests.split(',') if i.strip()],
+                    'preferences': [],
+                    'timeline': timeline,
+                    'location_preference': location_preference,
+                    'career_considerations': [],
+                    'goals': []
+                }
 
-                    db.add_student(family_id, student_data)
+                db.add_student(family_id, student_data)
 
-                    # Show success with access code
-                    st.markdown("""
-                    <div class="success-container">
-                        <h2>🎉 Family Account Created Successfully!</h2>
-                        <p>Your secure family career guidance platform is ready to use</p>
+                # Success message with access code
+                st.success("Family account created successfully!")
 
-                        <div class="access-code-display">
-                            <div style="font-size: 1.2rem; margin-bottom: 1rem;">Your Private Family Access Code:</div>
-                            <div class="access-code-text">{}</div>
-                            <div style="font-size: 1rem; margin-top: 1rem; opacity: 0.9;">Save this code securely - you'll need it to access your family dashboard</div>
-                        </div>
-
-                        <div style="margin-top: 2rem;">
-                            <h3>✅ What's Included:</h3>
-                            <div style="text-align: left; max-width: 500px; margin: 0 auto;">
-                                <p>• AI-powered career guidance with live Australian employment data</p>
-                                <p>• University course recommendations and application tracking</p>
-                                <p>• Personalized career pathway analysis</p>
-                                <p>• Professional career reports and planning tools</p>
-                                <p>• Secure family data storage and conversation history</p>
-                            </div>
-                        </div>
+                st.markdown(f"""
+                <div class="access-code-container">
+                    <div class="access-code-label">Your Family Access Code</div>
+                    <div class="access-code">{access_code}</div>
+                    <div class="access-code-note">
+                        Save this code securely. You'll need it to access your family's career guidance dashboard.
+                        <br>A confirmation email has been sent to {email}
                     </div>
-                    """.format(access_code), unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
-                    st.success(f"📧 Confirmation email sent to {email}")
-
-                    col1, col2, col3 = st.columns([1, 2, 1])
-                    with col2:
-                        if st.button("🚀 Launch My Family Dashboard", use_container_width=True):
-                            st.session_state.authenticated_family = {
-                                'id': family_id,
-                                'family_name': family_name,
-                                'email': email,
-                                'location': location,
-                                'access_code': access_code
-                            }
-                            if 'show_registration' in st.session_state:
-                                del st.session_state.show_registration
-                            st.rerun()
-
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    if st.button("Access My Family Dashboard", use_container_width=True):
+                        st.session_state.authenticated_family = {
+                            'id': family_id,
+                            'family_name': family_name,
+                            'email': email,
+                            'location': location,
+                            'access_code': access_code
+                        }
+                        if 'show_registration' in st.session_state:
+                            del st.session_state.show_registration
+                        st.rerun()
             else:
-                st.error("Please fill in all required fields marked with *")
+                st.error("Please fill in all required fields.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # Back to login
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🔙 Back to Login", use_container_width=True, type="secondary"):
+        if st.button("Back to Login", use_container_width=True, type="secondary"):
             if 'show_registration' in st.session_state:
                 del st.session_state.show_registration
             st.rerun()
@@ -588,48 +635,51 @@ def create_family_registration():
 
 
 def create_authenticated_family_interface(family_info):
-    """Professional authenticated family interface"""
-    # Family header with logout
+    """Clean authenticated family interface"""
+    create_header()
+
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
+    # Family header
     col1, col2 = st.columns([4, 1])
 
     with col1:
         st.markdown(f"""
         <div class="family-header">
-            <div class="family-title">🏠 Welcome back, {family_info['family_name']}</div>
-            <div class="family-code">🔐 Family Code: {family_info['access_code']} | 📧 {family_info['email']}</div>
+            <div class="family-title">Welcome, {family_info['family_name']}</div>
+            <div class="family-details">Family Code: {family_info['access_code']} | {family_info['email']}</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
-        if st.button("🚪 Secure Logout", use_container_width=True, type="secondary"):
+        if st.button("Logout", use_container_width=True, type="secondary"):
             del st.session_state.authenticated_family
-            st.success("Successfully logged out. Your session has been terminated securely.")
             st.rerun()
 
-    # Get family students
+    # Get students
     db = st.session_state.secure_db
     students = db.get_family_students(family_info['id'])
 
     if not students:
-        st.info("No students found for your family. Contact support to add students.")
+        st.info("No students found. Contact support to add students to your family account.")
+        st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    st.markdown('<div class="main-container">', unsafe_allow_html=True)
+    # Students section
+    st.markdown('<div class="section-title">Your Students</div>', unsafe_allow_html=True)
 
-    # Students interface
-    st.markdown("## 🎓 Your Students & Career Guidance")
-
-    # Student selection with cards
     for student in students:
         st.markdown(f"""
         <div class="student-card">
-            <h3>👨‍🎓 {student['name']} - Year {student['year_level']}</h3>
-            <p><strong>Age:</strong> {student['age']} | <strong>Interests:</strong> {', '.join(student['interests'][:3]) if student['interests'] else 'None specified'}</p>
-            <p><strong>Application Timeline:</strong> {student['timeline']}</p>
+            <div class="student-name">{student['name']} - Year {student['year_level']}</div>
+            <div class="student-details">
+                Age: {student['age']} | Interests: {', '.join(student['interests'][:3]) if student['interests'] else 'None specified'}<br>
+                Timeline: {student['timeline']}
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button(f"💬 Start Career Guidance Session with {student['name']}",
+        if st.button(f"Start Career Guidance for {student['name']}",
                      key=f"student_{student['id']}", use_container_width=True):
             st.session_state.selected_student = student
             st.rerun()
@@ -638,95 +688,69 @@ def create_authenticated_family_interface(family_info):
     if 'selected_student' in st.session_state:
         student = st.session_state.selected_student
 
-        st.markdown(f"""
+        st.markdown("""
         <div class="chat-container">
             <div class="chat-header">
-                <h2>💬 AI Career Guidance Session</h2>
-                <p>Personalized guidance for {student['name']} using live Australian employment data</p>
+                <div class="chat-title">Career Guidance Session</div>
+                <div class="chat-subtitle">AI-powered career counseling with live Australian employment data</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Professional chat interface
         user_input = st.text_area(
-            "Ask Your Career Question:",
-            placeholder=f"What career opportunities align with {student['name']}'s interests in {', '.join(student['interests']) if student['interests'] else 'their chosen field'}? What are the current job market prospects?",
-            height=120
+            "Ask your career question:",
+            placeholder=f"What career opportunities align with {student['name']}'s interests? What are the current job prospects?",
+            height=100
         )
 
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if st.button("🎯 Get Professional Career Guidance", use_container_width=True):
-                if user_input:
-                    with st.spinner("🤖 AI Career Counselor analyzing current market data..."):
-                        # Simulate processing time for professional feel
-                        import time
-                        time.sleep(2)
+        if st.button("Get Career Guidance", use_container_width=True):
+            if user_input:
+                st.markdown("""
+                <div class="ai-response">
+                    <div class="ai-response-header">🤖 AI Career Counselor</div>
+                """, unsafe_allow_html=True)
 
-                        st.markdown("""
-                        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 2rem; border-radius: 15px; margin: 1rem 0;">
-                            <h3>🤖 AI Career Counselor Response</h3>
-                        </div>
-                        """, unsafe_allow_html=True)
+                st.write(f"""
+                **Career Guidance for {student['name']}:**
 
-                        st.write(f"""
-                        **Professional Career Analysis for {student['name']}:**
+                Based on {student['name']}'s interests in **{', '.join(student['interests']) if student['interests'] else 'their chosen fields'}** and current Australian employment data:
 
-                        Based on {student['name']}'s interests in **{', '.join(student['interests']) if student['interests'] else 'their chosen fields'}** and current Australian employment data:
+                **Recommended Career Pathways:**
+                - Analysis of careers matching their interests
+                - Current employment prospects and salary ranges
+                - University course recommendations
 
-                        **🎯 Recommended Career Pathways:**
-                        - Detailed analysis of careers matching their interests
-                        - Current employment prospects and growth rates
-                        - Salary ranges and market demand
+                **Next Steps:**
+                1. Research recommended universities and courses
+                2. Plan application timeline
+                3. Schedule follow-up guidance session
 
-                        **🏛️ University Recommendations:**
-                        - Best programs for their interests across NSW/ACT
-                        - Entry requirements and application deadlines
-                        - Course structures and practical components
+                *Powered by live Australian government employment data.*
+                """)
 
-                        **📊 Current Market Data:**
-                        - Live employment statistics from Australian Bureau of Statistics
-                        - Industry growth forecasts through 2028
-                        - Regional job market analysis
+                st.markdown("</div>", unsafe_allow_html=True)
 
-                        **📋 Next Steps:**
-                        1. Generate detailed career pathway report
-                        2. Set up university application timeline
-                        3. Schedule follow-up guidance session
+                # Save conversation
+                db.save_conversation(family_info['id'], student['id'], student['name'],
+                                     user_input, "AI career guidance response", ['career_guidance'])
 
-                        *This guidance is powered by live Australian government employment data and AI analysis.*
-                        """)
-
-                        # Save conversation
-                        db.save_conversation(family_info['id'], student['id'], student['name'],
-                                             user_input, "Professional AI career guidance response",
-                                             ['career_guidance'])
-
-                        st.success("✅ Career guidance session saved to your family's secure records")
-
-        with col2:
-            if st.button("📄 Generate Career Report", use_container_width=True, type="secondary"):
-                st.info("🔧 Advanced reporting features coming soon!")
+                st.success("Career guidance session saved to your family records.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 def main():
-    """Main secure application with professional design"""
+    """Main application with clean design"""
 
-    # Initialize agent
     if 'secure_agent' not in st.session_state:
         st.session_state.secure_agent = SecureFamilyCareerAgent()
 
-    # Main logic with professional interface
     if 'authenticated_family' not in st.session_state:
-        # Show login or registration
         if 'show_registration' in st.session_state:
             create_family_registration()
         else:
             create_family_login()
     else:
-        # Show authenticated family interface
         create_authenticated_family_interface(st.session_state.authenticated_family)
 
 
