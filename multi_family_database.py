@@ -337,6 +337,77 @@ class MultiFamilyDatabase:
             }
         return None
 
+    # Add this method to your MultiFamilyDatabase class in multi_family_database.py
+
+    def init_canvas_tables(self):
+        """Initialize Canvas integration tables"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Canvas credentials table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                canvas_url TEXT,
+                access_token TEXT,
+                student_name TEXT,
+                canvas_user_id TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_sync DATETIME,
+                FOREIGN KEY (student_id) REFERENCES students (id),
+                UNIQUE(student_id)
+            )
+        ''')
+
+        # Canvas assignments table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                course_name TEXT,
+                assignment_name TEXT,
+                due_date DATETIME,
+                points_possible REAL,
+                description TEXT,
+                html_url TEXT,
+                is_quiz BOOLEAN DEFAULT FALSE,
+                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students (id),
+                UNIQUE(student_id, assignment_id)
+            )
+        ''')
+
+        # Simple milestones table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS simple_milestones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                assignment_name TEXT,
+                title TEXT,
+                description TEXT,
+                target_date TEXT,
+                completed BOOLEAN DEFAULT FALSE,
+                created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students (id)
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+        print("✅ Canvas tables initialized")
+
+    # Also update your init_database method to call this:
+    def init_database(self):
+        """Initialize database with multi-family support"""
+        # ... your existing code ...
+
+        # Add this line at the end of your existing init_database method:
+        self.init_canvas_tables()
+
 
 # Initialize with sample families for testing
 def setup_sample_families():
@@ -400,6 +471,8 @@ def setup_sample_families():
 
     print("✅ Sample families and students created")
     return db
+
+
 
 
 if __name__ == "__main__":

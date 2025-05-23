@@ -7,7 +7,6 @@ import os
 import json
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
-from canvas_integration import add_canvas_to_family_interface
 
 # Page configuration
 st.set_page_config(
@@ -17,15 +16,103 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Clean, professional CSS inspired by Khan Academy
+# NUCLEAR SPACING FIX
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap');
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
+        margin-top: 0rem !important;
+    }
+    .main .block-container {
+        padding-top: 0rem !important;
+        max-width: 100% !important;
+    }
+    div[data-testid="stVerticalBlock"] {
+        gap: 0rem !important;
+    }
+    .stMarkdown {
+        margin-bottom: 0rem !important;
+    }
+    div[data-testid="stVerticalBlock"] > div:first-child {
+        padding-top: 0rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-    /* Global Styles */
+# Complete Khan Academy-inspired CSS
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&display=swap');
+
+    /* =================== GLOBAL STYLES =================== */
     .stApp {
-        background-color: #f7f8fa;
-        font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+        background-color: #ffffff;
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #21242c;
+    }
+
+    /* Remove Streamlit elements AND spacing */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display: none;}
+    header[data-testid="stHeader"] {
+        background: rgba(0,0,0,0);
+        height: 0rem;
+    }
+
+    /* CRITICAL: Remove all Streamlit default spacing */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
+        max-width: none !important;
+    }
+
+    .main .block-container {
+        padding-top: 0rem !important;
+    }
+
+    div[data-testid="stVerticalBlock"] {
+        gap: 0rem !important;
+    }
+
+    div[data-testid="stVerticalBlock"] > div {
+        margin-bottom: 0rem !important;
+    }
+
+    /* =================== MAIN LAYOUT =================== */
+    .main-header {
+        background: #ffffff;
+        border-bottom: 1px solid #e7e8ea;
+        padding: 16px 0;
+        margin: 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .header-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+    }
+
+    .main-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+        background: #ffffff;
+    }
+
+    /* =================== GLOBAL STYLES =================== */
+    .stApp {
+        background-color: #ffffff;
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #21242c;
     }
 
     /* Remove Streamlit elements */
@@ -37,60 +124,112 @@ st.markdown("""
         height: 0rem;
     }
 
-    /* Main container */
-    .main-content {
-        background: white;
-        border-radius: 8px;
-        padding: 32px;
-        margin: 24px auto;
-        max-width: 1200px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e5e5e5;
+    /* Fix Streamlit spacing issues */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
     }
 
-    /* Header */
-    .site-header {
-        background: white;
-        border-bottom: 1px solid #e5e5e5;
+    .element-container {
+        margin: 0 !important;
+    }
+
+    .stMarkdown {
+        margin-bottom: 0 !important;
+    }
+
+    div[data-testid="stVerticalBlock"] > div:first-child {
+        margin-top: 0 !important;
+    }
+
+    /* =================== MAIN LAYOUT =================== */
+    .main-header {
+        background: #ffffff;
+        border-bottom: 1px solid #e7e8ea;
         padding: 16px 0;
-        margin-bottom: 32px;
+        margin-bottom: 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    .site-header .container {
+    .header-container {
         max-width: 1200px;
         margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 32px;
+        padding: 0 24px;
     }
 
-    .logo {
-        font-size: 24px;
+    .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .app-logo {
+        width: 40px;
+        height: 40px;
+        background: #00a60e;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 20px;
         font-weight: 700;
-        color: #1c4980;
-        text-decoration: none;
     }
 
-    .logo-subtitle {
+    .app-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #21242c;
+        margin: 0;
+    }
+
+    .app-subtitle {
         font-size: 14px;
-        color: #6b7280;
-        font-weight: 400;
-        margin-left: 8px;
+        color: #626569;
+        margin: 0;
+        margin-top: 2px;
     }
 
-    /* Typography */
+    .main-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px;
+        background: #ffffff;
+        min-height: calc(100vh - 120px);
+    }
+
+    /* Fix gap between header and content */
+    .block-container {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+
+    .element-container {
+        margin: 0 !important;
+    }
+
+    /* Override Streamlit's default spacing */
+    .stApp > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    /* =================== TYPOGRAPHY =================== */
     .page-title {
         font-size: 32px;
-        font-weight: 700;
-        color: #1c4980;
+        font-weight: 600;
+        color: #21242c;
         margin-bottom: 8px;
         line-height: 1.2;
     }
 
     .page-subtitle {
         font-size: 18px;
-        color: #6b7280;
+        color: #626569;
         margin-bottom: 32px;
         line-height: 1.4;
     }
@@ -98,322 +237,567 @@ st.markdown("""
     .section-title {
         font-size: 24px;
         font-weight: 600;
-        color: #374151;
+        color: #21242c;
         margin-bottom: 16px;
         margin-top: 32px;
     }
 
     .section-subtitle {
         font-size: 16px;
-        color: #6b7280;
+        color: #626569;
         margin-bottom: 24px;
+        line-height: 1.5;
     }
 
-    /* Cards */
-    .card {
-        background: white;
-        border: 1px solid #e5e5e5;
-        border-radius: 8px;
+    /* =================== NAVIGATION TABS =================== */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background: transparent;
+        border-bottom: 2px solid #e7e8ea;
+        margin-bottom: 32px;
+        padding: 0;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        padding: 0 24px;
+        border-radius: 0;
+        border: none;
+        background: transparent;
+        color: #626569;
+        font-weight: 500;
+        font-size: 16px;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+        margin-bottom: -2px;
+    }
+
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #21242c;
+        background: rgba(0, 166, 14, 0.05);
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #00a60e !important;
+        border-bottom-color: #00a60e !important;
+        background: transparent !important;
+        font-weight: 600 !important;
+    }
+
+    /* =================== CARDS & CONTAINERS =================== */
+    .family-header {
+        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 4px 16px rgba(0, 166, 14, 0.2);
+    }
+
+    .family-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+    }
+
+    .family-details {
+        font-size: 16px;
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .student-card {
+        background: #ffffff;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
         padding: 24px;
-        margin-bottom: 16px;
-        transition: box-shadow 0.2s ease;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
     }
 
-    .card:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    .student-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: #00a60e;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
 
-    .card-title {
+    .student-card:hover {
+        border-color: #00a60e;
+        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .student-card:hover::before {
+        opacity: 1;
+    }
+
+    .student-name {
         font-size: 20px;
         font-weight: 600;
-        color: #374151;
+        color: #21242c;
+        margin: 0 0 8px 0;
+    }
+
+    .student-details {
+        font-size: 14px;
+        color: #626569;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    /* =================== CANVAS INTEGRATION =================== */
+    .canvas-status {
+        background: #ffffff;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        transition: all 0.2s ease;
+    }
+
+    .canvas-connected {
+        border-color: #00a60e;
+        background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e8 100%);
+    }
+
+    .canvas-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #21242c;
+        margin: 0 0 4px 0;
+    }
+
+    .canvas-subtitle {
+        font-size: 14px;
+        color: #626569;
+        margin: 0;
+    }
+
+    /* =================== BUTTONS =================== */
+    .stButton > button {
+        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 14px 28px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: 'Lato', sans-serif;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
+        text-transform: none;
+    }
+
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #008a0c 0%, #007a0b 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.3);
+    }
+
+    .stButton > button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
+    }
+
+    /* Secondary buttons */
+    .stButton > button[kind="secondary"] {
+        background: #ffffff;
+        color: #21242c;
+        border: 2px solid #c4c6ca;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .stButton > button[kind="secondary"]:hover {
+        background: #f7f8fa;
+        border-color: #9ca0a5;
+        transform: translateY(-1px);
+    }
+
+    /* =================== FORMS & INPUTS =================== */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > select,
+    .stNumberInput > div > div > input {
+        border: 2px solid #c4c6ca;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-size: 16px;
+        font-family: 'Lato', sans-serif;
+        background: #ffffff;
+        color: #21242c;
+        transition: all 0.2s ease;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div > select:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #00a60e;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0, 166, 14, 0.1);
+    }
+
+    /* Form labels */
+    .stTextInput > label,
+    .stTextArea > label,
+    .stSelectbox > label,
+    .stNumberInput > label {
+        font-weight: 500;
+        color: #21242c;
         margin-bottom: 8px;
     }
 
-    .card-subtitle {
-        font-size: 14px;
-        color: #6b7280;
-        margin-bottom: 16px;
-    }
-
-    /* Forms */
+    /* =================== FORMS CONTAINERS =================== */
     .form-container {
-        background: #f9fafb;
-        border: 1px solid #e5e5e5;
-        border-radius: 8px;
-        padding: 32px;
-        margin: 24px 0;
+        background: #f7f8fa;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 40px;
+        margin: 32px 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
 
     .form-title {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 600;
-        color: #374151;
+        color: #21242c;
         margin-bottom: 8px;
         text-align: center;
     }
 
     .form-subtitle {
         font-size: 16px;
-        color: #6b7280;
+        color: #626569;
         margin-bottom: 32px;
         text-align: center;
+        line-height: 1.5;
     }
 
-    /* Input styling */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select {
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        padding: 12px 16px;
-        font-size: 16px;
-        font-family: 'Lato', sans-serif;
-        background: white;
-        transition: border-color 0.2s ease;
-    }
-
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stSelectbox > div > div > select:focus {
-        border-color: #1c4980;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(28, 73, 128, 0.1);
-    }
-
-    /* Button styling */
-    .stButton > button {
-        background-color: #1c4980;
-        color: white;
-        border: 1px solid #1c4980;
-        border-radius: 6px;
-        padding: 12px 24px;
-        font-size: 16px;
-        font-weight: 600;
-        font-family: 'Lato', sans-serif;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-
-    .stButton > button:hover {
-        background-color: #164373;
-        border-color: #164373;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .stButton > button:active {
-        transform: translateY(0);
-    }
-
-    /* Secondary button */
-    .secondary-button {
-        background-color: white !important;
-        color: #1c4980 !important;
-        border: 1px solid #1c4980 !important;
-    }
-
-    .secondary-button:hover {
-        background-color: #f9fafb !important;
-    }
-
-    /* Success/Error styling */
+    /* =================== ALERTS & MESSAGES =================== */
     .stSuccess {
-        background-color: #f0f9ff;
-        border: 1px solid #0ea5e9;
-        border-radius: 6px;
+        background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e8 100%);
+        border: 2px solid #00a60e;
+        border-radius: 8px;
         padding: 16px;
         margin: 16px 0;
     }
 
     .stError {
-        background-color: #fef2f2;
-        border: 1px solid #ef4444;
-        border-radius: 6px;
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 2px solid #ef4444;
+        border-radius: 8px;
         padding: 16px;
         margin: 16px 0;
     }
 
-    /* Security features */
-    .security-features {
-        display: flex;
-        justify-content: center;
-        gap: 32px;
-        margin: 32px 0;
-        flex-wrap: wrap;
-    }
-
-    .security-feature {
-        text-align: center;
-        flex: 1;
-        min-width: 200px;
-    }
-
-    .security-icon {
-        font-size: 24px;
-        margin-bottom: 8px;
-    }
-
-    .security-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 4px;
-    }
-
-    .security-desc {
-        font-size: 14px;
-        color: #6b7280;
-        line-height: 1.4;
-    }
-
-    /* Family header */
-    .family-header {
-        background: #f0f9ff;
-        border: 1px solid #0ea5e9;
+    .stInfo {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 2px solid #3b82f6;
         border-radius: 8px;
-        padding: 24px;
-        margin-bottom: 32px;
-    }
-
-    .family-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #0c4a6e;
-        margin-bottom: 8px;
-    }
-
-    .family-details {
-        font-size: 16px;
-        color: #075985;
-    }
-
-    /* Student cards */
-    .student-card {
-        border: 1px solid #e5e5e5;
-        border-radius: 8px;
-        padding: 24px;
-        margin-bottom: 16px;
-        background: white;
-        transition: all 0.2s ease;
-    }
-
-    .student-card:hover {
-        border-color: #1c4980;
-        box-shadow: 0 2px 8px rgba(28, 73, 128, 0.1);
-    }
-
-    .student-name {
-        font-size: 20px;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 8px;
-    }
-
-    .student-details {
-        font-size: 14px;
-        color: #6b7280;
-        line-height: 1.5;
-    }
-
-    /* Access code display */
-    .access-code-container {
-        background: #f0f9ff;
-        border: 2px dashed #0ea5e9;
-        border-radius: 8px;
-        padding: 32px;
-        text-align: center;
-        margin: 24px 0;
-    }
-
-    .access-code {
-        font-size: 36px;
-        font-weight: 700;
-        color: #0c4a6e;
-        letter-spacing: 4px;
-        font-family: 'Monaco', 'Menlo', monospace;
+        padding: 16px;
         margin: 16px 0;
     }
 
+    .stWarning {
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        border: 2px solid #f59e0b;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    /* =================== ACCESS CODE DISPLAY =================== */
+    .access-code-container {
+        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        margin: 32px 0;
+        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.3);
+    }
+
+    .access-code {
+        font-size: 42px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: 6px;
+        font-family: 'Monaco', 'Menlo', monospace;
+        margin: 20px 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        padding: 16px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        border: 2px dashed rgba(255,255,255,0.3);
+    }
+
     .access-code-label {
-        font-size: 16px;
-        color: #075985;
+        font-size: 20px;
+        color: white;
         font-weight: 600;
         margin-bottom: 8px;
     }
 
     .access-code-note {
-        font-size: 14px;
-        color: #6b7280;
-        margin-top: 16px;
+        font-size: 16px;
+        color: rgba(255,255,255,0.9);
+        margin-top: 20px;
+        line-height: 1.6;
     }
 
-    /* Chat interface */
-    .chat-container {
-        border: 1px solid #e5e5e5;
+    /* =================== MILESTONE CARDS =================== */
+    .milestone-card {
+        border-left: 4px solid #00a60e;
+        padding: 20px;
+        margin: 16px 0;
+        background: #ffffff;
         border-radius: 8px;
-        padding: 24px;
-        margin: 24px 0;
-        background: white;
+        border: 1px solid #e7e8ea;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .milestone-card:hover {
+        border-color: #c4c6ca;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+
+    .milestone-title {
+        font-weight: 600;
+        font-size: 16px;
+        color: #21242c;
+        margin-bottom: 8px;
+    }
+
+    .milestone-description {
+        color: #626569;
+        margin: 6px 0;
+        line-height: 1.6;
+    }
+
+    .milestone-date {
+        font-size: 14px;
+        font-weight: 500;
+        color: #00a60e;
+    }
+
+    /* =================== SECURITY FEATURES =================== */
+    .security-features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 24px;
+        margin: 40px 0;
+    }
+
+    .security-feature {
+        text-align: center;
+        padding: 32px 24px;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 2px solid #e7e8ea;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .security-feature:hover {
+        border-color: #00a60e;
+        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .security-icon {
+        font-size: 40px;
+        margin-bottom: 16px;
+        color: #00a60e;
+    }
+
+    .security-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 8px;
+    }
+
+    .security-desc {
+        font-size: 14px;
+        color: #626569;
+        line-height: 1.6;
+    }
+
+    /* =================== CHAT INTERFACE =================== */
+    .chat-container {
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 32px;
+        margin: 32px 0;
+        background: #ffffff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
 
     .chat-header {
-        border-bottom: 1px solid #e5e5e5;
-        padding-bottom: 16px;
+        border-bottom: 2px solid #e7e8ea;
+        padding-bottom: 20px;
         margin-bottom: 24px;
     }
 
     .chat-title {
-        font-size: 20px;
+        font-size: 24px;
         font-weight: 600;
-        color: #374151;
+        color: #21242c;
         margin-bottom: 4px;
     }
 
     .chat-subtitle {
-        font-size: 14px;
-        color: #6b7280;
+        font-size: 16px;
+        color: #626569;
     }
 
-    /* Response styling */
     .ai-response {
-        background: #f9fafb;
-        border: 1px solid #e5e5e5;
-        border-radius: 8px;
+        background: linear-gradient(135deg, #f7f8fa 0%, #f0f1f3 100%);
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
         padding: 24px;
-        margin: 16px 0;
+        margin: 20px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .ai-response-header {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 600;
-        color: #1c4980;
+        color: #00a60e;
         margin-bottom: 16px;
         display: flex;
         align-items: center;
         gap: 8px;
     }
 
-    /* Responsive design */
+    /* =================== METRICS & STATS =================== */
+    .metric-card {
+        background: #ffffff;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 24px;
+        text-align: center;
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .metric-card:hover {
+        border-color: #00a60e;
+        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.1);
+    }
+
+    .metric-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #00a60e;
+        margin-bottom: 8px;
+        line-height: 1;
+    }
+
+    .metric-label {
+        font-size: 14px;
+        color: #626569;
+        font-weight: 500;
+    }
+
+    /* =================== PROGRESS BARS =================== */
+    .stProgress .stProgress-bar {
+        background: linear-gradient(90deg, #00a60e 0%, #008a0c 100%);
+        border-radius: 8px;
+        height: 12px;
+    }
+
+    /* =================== RESPONSIVE DESIGN =================== */
     @media (max-width: 768px) {
+        .header-container,
         .main-content {
-            margin: 16px;
-            padding: 24px;
+            padding: 16px;
         }
 
-        .site-header .container {
-            padding: 0 24px;
-        }
-
-        .security-features {
+        .header-container {
             flex-direction: column;
             gap: 16px;
+            text-align: center;
+        }
+
+        .app-title {
+            font-size: 20px;
+        }
+
+        .page-title {
+            font-size: 28px;
         }
 
         .access-code {
-            font-size: 24px;
-            letter-spacing: 2px;
+            font-size: 28px;
+            letter-spacing: 3px;
         }
+
+        .security-features {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            padding: 0 12px;
+            font-size: 14px;
+        }
+
+        .form-container {
+            padding: 24px;
+        }
+
+        .family-header {
+            padding: 24px;
+        }
+    }
+
+    /* =================== SIDEBAR ENHANCEMENTS =================== */
+    .stSidebar {
+        background: #f7f8fa;
+        border-right: 2px solid #e7e8ea;
+    }
+
+    .stSidebar .stSelectbox > div > div > select,
+    .stSidebar .stTextInput > div > div > input {
+        background: #ffffff;
+        border: 2px solid #e7e8ea;
+    }
+
+    /* =================== LOADING STATES =================== */
+    .stSpinner > div {
+        border-top-color: #00a60e;
+    }
+
+    /* =================== CLEAN TABLES =================== */
+    .stDataFrame {
+        border: 2px solid #e7e8ea;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .stDataFrame thead th {
+        background-color: #f7f8fa;
+        color: #21242c;
+        font-weight: 600;
+        border-bottom: 2px solid #e7e8ea;
+    }
+
+    .stDataFrame tbody td {
+        border-bottom: 1px solid #e7e8ea;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -434,30 +818,33 @@ class SecureFamilyCareerAgent:
         self.db = st.session_state.secure_db
 
 
-def create_header():
-    """Clean site header"""
+def create_clean_header():
+    """Minimalist professional header"""
     st.markdown("""
-    <div class="site-header">
-        <div class="container">
-            <div>
-                <span class="logo">📚 CareerPath</span>
-                <span class="logo-subtitle">Professional Career Guidance Platform</span>
-            </div>
+    <div style="background: #ffffff; padding: 32px 0 24px 0; margin: 0;">
+        <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px; text-align: center;">
+            <h1 style="font-size: 42px; font-weight: 600; color: #21242c; margin: 0; letter-spacing: -1px;">CareerPath</h1>
+            <p style="font-size: 18px; color: #626569; margin: 8px 0 0 0; font-weight: 400;">Professional Career Guidance Platform</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
+def create_header():
+    """Backward compatibility - calls create_clean_header"""
+    create_clean_header()
+
 
 def create_family_login():
     """Clean, professional login interface"""
-    create_header()
+    create_clean_header()
 
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+    # Start main content immediately after header
+    st.markdown('<div style="max-width: 1200px; margin: 0 auto; padding: 24px; background: #ffffff;">', unsafe_allow_html=True)
 
     # Page header
     st.markdown("""
     <div class="page-title">Secure Family Access</div>
-    <div class="page-subtitle">Enter your family access code to view your personalized career guidance dashboard</div>
+    <div class="page-subtitle">Enter your family access code to view your personalised career guidance dashboard</div>
     """, unsafe_allow_html=True)
 
     # Security features
@@ -531,9 +918,9 @@ def create_family_login():
 
 def create_family_registration():
     """Clean family registration form"""
-    create_header()
+    create_clean_header()
 
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+    st.markdown('<div style="max-width: 1200px; margin: 0 auto; padding: 24px; background: #ffffff;">', unsafe_allow_html=True)
 
     st.markdown("""
     <div class="page-title">Family Registration</div>
@@ -636,10 +1023,10 @@ def create_family_registration():
 
 
 def create_authenticated_family_interface(family_info):
-    """Clean authenticated family interface"""
-    create_header()
+    """Enhanced authenticated family interface"""
+    create_clean_header()
 
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+    st.markdown('<div style="max-width: 1200px; margin: 0 auto; padding: 24px; background: #ffffff;">', unsafe_allow_html=True)
 
     # Family header
     col1, col2 = st.columns([4, 1])
@@ -666,7 +1053,27 @@ def create_authenticated_family_interface(family_info):
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    # Students section
+    # Tab navigation
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["👥 Students & Career Guidance", "📚 Canvas LMS Integration", "📊 Progress & Reports", "⚙️ Family Settings"])
+
+    with tab1:
+        show_students_and_career_tab(students, family_info, db)
+
+    with tab2:
+        show_canvas_integration_tab(students)
+
+    with tab3:
+        show_progress_and_reports_tab(students, family_info)
+
+    with tab4:
+        show_family_settings_tab(family_info, students)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def show_students_and_career_tab(students, family_info, db):
+    """Show students and career guidance"""
     st.markdown('<div class="section-title">Your Students</div>', unsafe_allow_html=True)
 
     for student in students:
@@ -685,15 +1092,16 @@ def create_authenticated_family_interface(family_info):
             st.session_state.selected_student = student
             st.rerun()
 
-    add_canvas_to_family_interface()
     # Chat interface
     if 'selected_student' in st.session_state:
         student = st.session_state.selected_student
-        st.markdown("""
+
+        st.markdown("---")
+        st.markdown(f"""
         <div class="chat-container">
             <div class="chat-header">
-                <div class="chat-title">Career Guidance Session</div>
-                <div class="chat-subtitle">AI-powered career counseling with live Australian employment data</div>
+                <div class="chat-title">Career Guidance for {student['name']}</div>
+                <div class="chat-subtitle">AI-powered career counselling with live Australian employment data</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -708,7 +1116,7 @@ def create_authenticated_family_interface(family_info):
             if user_input:
                 st.markdown("""
                 <div class="ai-response">
-                    <div class="ai-response-header">🤖 AI Career Counselor</div>
+                    <div class="ai-response-header">🤖 AI Career Counsellor</div>
                 """, unsafe_allow_html=True)
 
                 st.write(f"""
@@ -737,12 +1145,238 @@ def create_authenticated_family_interface(family_info):
 
                 st.success("Career guidance session saved to your family records.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+
+def show_progress_and_reports_tab(students, family_info):
+    """Show progress tracking and reports"""
+    st.markdown('<div class="section-title">📊 Progress Tracking & Reports</div>', unsafe_allow_html=True)
+
+    for student in students:
+        st.markdown(f"### 📈 {student['name']}'s Progress")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-value">5</div>
+                <div class="metric-label">Career Sessions</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-value">3</div>
+                <div class="metric-label">Universities Explored</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown("""
+            <div class="metric-card">
+                <div class="metric-value">8</div>
+                <div class="metric-label">Career Paths Identified</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Recent milestones
+        st.markdown("#### 🎯 Recent Progress")
+        st.markdown("""
+        <div class="milestone-card">
+            <div class="milestone-title">University Research Completed</div>
+            <div class="milestone-description">Explored 3 universities matching interests</div>
+            <div class="milestone-date">2 days ago</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if len(students) > 1:
+            st.markdown("---")
+
+
+def show_family_settings_tab(family_info, students):
+    """Show family settings and management"""
+    st.markdown('<div class="section-title">⚙️ Family Settings</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Family Information")
+        st.text_input("Family Name", value=family_info['family_name'], disabled=True)
+        st.text_input("Email", value=family_info['email'], disabled=True)
+        st.text_input("Location", value=family_info.get('location', ''), disabled=True)
+
+    with col2:
+        st.markdown("#### Account Details")
+        st.text_input("Access Code", value=family_info['access_code'], disabled=True)
+        st.text_input("Students", value=f"{len(students)} students", disabled=True)
+
+    st.markdown("#### Quick Actions")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("Add New Student", use_container_width=True):
+            st.info("Contact support to add additional students to your family account.")
+
+    with col2:
+        if st.button("Download Reports", use_container_width=True):
+            st.info("Report generation feature coming soon!")
+
+    with col3:
+        if st.button("Contact Support", use_container_width=True):
+            st.info("Support: support@careerpath.edu.au")
+
+
+def show_canvas_integration_tab(students):
+    """Show Canvas LMS integration for study materials"""
+    st.markdown('<div class="section-title">📚 Canvas LMS Integration</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Connect your students\' Canvas accounts to sync assignments and study materials</div>',
+        unsafe_allow_html=True)
+
+    for student in students:
+        st.markdown(f"### 📚 {student['name']} - Canvas Integration")
+
+        # Canvas connection status - use different key for storage
+        canvas_connected = st.session_state.get(f"canvas_connected_{student['id']}", False)
+
+        if not canvas_connected:
+            st.markdown("""
+            <div class="canvas-status">
+                <div class="canvas-title">Connect Canvas Account</div>
+                <div class="canvas-subtitle">Link your Canvas LMS to automatically sync assignments and study materials</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                canvas_url = st.text_input(f"Canvas URL", placeholder="https://yourschool.instructure.com",
+                                           key=f"input_canvas_url_{student['id']}")
+            with col2:
+                canvas_token = st.text_input(f"Access Token", placeholder="Your Canvas API token", type="password",
+                                             key=f"input_canvas_token_{student['id']}")
+
+            if st.button(f"Connect Canvas for {student['name']}", key=f"connect_{student['id']}"):
+                if canvas_url and canvas_token:
+                    # Store with different keys to avoid conflicts
+                    st.session_state[f"canvas_connected_{student['id']}"] = True
+                    st.session_state[f"stored_canvas_url_{student['id']}"] = canvas_url  # Different key
+                    st.session_state[f"stored_canvas_token_{student['id']}"] = canvas_token  # Different key
+                    st.success(f"✅ Canvas connected for {student['name']}!")
+                    st.rerun()
+                else:
+                    st.error("Please provide both Canvas URL and access token")
+
+        else:
+            # Show connected Canvas features
+            stored_url = st.session_state.get(f"stored_canvas_url_{student['id']}", "Unknown")
+            st.markdown(f"""
+            <div class="canvas-status canvas-connected">
+                <div class="canvas-title">✅ Canvas Connected</div>
+                <div class="canvas-subtitle">Connected to: {stored_url}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Tabs for Canvas features
+            canvas_tab1, canvas_tab2, canvas_tab3 = st.tabs(["📋 Assignments", "📚 Study Materials", "📊 Progress"])
+
+            with canvas_tab1:
+                st.markdown("#### Upcoming Assignments")
+
+                # Sample assignments data
+                assignments = [
+                    {"name": "Ancient History Essay", "due": "2025-06-15", "course": "Ancient History",
+                     "status": "In Progress"},
+                    {"name": "Biology Lab Report", "due": "2025-06-18", "course": "Biology", "status": "Not Started"},
+                    {"name": "English Creative Writing", "due": "2025-06-22", "course": "English",
+                     "status": "Submitted"}
+                ]
+
+                for assignment in assignments:
+                    status_color = {"In Progress": "🟡", "Not Started": "🔴", "Submitted": "✅"}
+                    st.markdown(f"""
+                    <div class="milestone-card">
+                        <div class="milestone-title">{status_color[assignment['status']]} {assignment['name']}</div>
+                        <div class="milestone-description">Course: {assignment['course']}</div>
+                        <div class="milestone-date">Due: {assignment['due']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with canvas_tab2:
+                st.markdown("#### Study Materials & Resources")
+
+                # Sample study materials
+                materials = [
+                    {"title": "Ancient Civilizations Study Guide", "type": "PDF", "course": "Ancient History"},
+                    {"title": "Cell Biology Video Lectures", "type": "Video", "course": "Biology"},
+                    {"title": "Essay Writing Techniques", "type": "Document", "course": "English"}
+                ]
+
+                for material in materials:
+                    type_icon = {"PDF": "📄", "Video": "🎥", "Document": "📝"}
+                    st.markdown(f"""
+                    <div class="milestone-card">
+                        <div class="milestone-title">{type_icon[material['type']]} {material['title']}</div>
+                        <div class="milestone-description">Course: {material['course']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with canvas_tab3:
+                st.markdown("#### Academic Progress")
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown("""
+                    <div class="metric-card">
+                        <div class="metric-value">85%</div>
+                        <div class="metric-label">Overall Grade</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown("""
+                    <div class="metric-card">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">Assignments Due</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown("""
+                    <div class="metric-card">
+                        <div class="metric-value">92%</div>
+                        <div class="metric-label">Attendance</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # Disconnect option
+            if st.button(f"Disconnect Canvas for {student['name']}", key=f"disconnect_{student['id']}"):
+                # Clear all stored data
+                st.session_state[f"canvas_connected_{student['id']}"] = False
+                if f"stored_canvas_url_{student['id']}" in st.session_state:
+                    del st.session_state[f"stored_canvas_url_{student['id']}"]
+                if f"stored_canvas_token_{student['id']}" in st.session_state:
+                    del st.session_state[f"stored_canvas_token_{student['id']}"]
+                st.rerun()
+
+        if len(students) > 1:
+            st.markdown("---")
 
 
 def main():
     """Main application with clean design"""
 
+    def main():
+        """Main application with clean design"""
+
+        # Force remove Streamlit spacing
+        st.markdown("""
+        <style>
+        .block-container {
+            padding-top: 0rem !important;
+            margin-top: 0rem !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
     if 'secure_agent' not in st.session_state:
         st.session_state.secure_agent = SecureFamilyCareerAgent()
 

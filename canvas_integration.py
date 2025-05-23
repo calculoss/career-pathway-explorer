@@ -4,8 +4,10 @@ import requests
 import json
 import anthropic
 import pandas as pd
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+import traceback
 
 
 class CanvasIntegrator:
@@ -413,7 +415,7 @@ class CanvasIntegrator:
 
 
 class SimpleMilestoneGenerator:
-    """Simple milestone generator for study planning"""
+    """Simple milestone generator for study planning with improved error handling"""
 
     def __init__(self, db_path="community_career_explorer.db"):
         self.db_path = db_path
@@ -534,21 +536,254 @@ Create 4 specific study milestones as JSON:
         self._save_milestones({'id': 'student'}, assignment, milestones)
         return milestones
 
-    def _save_milestones(self, student, assignment, milestones):
-        """Save milestones to database"""
+    def _create_ai_milestones_without_saving(self, student, assignment):
+        """Create AI milestones but don't save them yet"""
+        if not self.ai_client:
+            return self._create_fallback_milestones_without_saving(assignment)
+
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            due_date = assignment['due_date']
+            days_available = (due_date - datetime.now()).days if due_date else 14
+
+            prompt = f"""Create a study plan for this Australian high school assignment:
+
+Assignment: {assignment['assignment_name']}
+Course: {assignment['course_name']} 
+Due: {due_date.strftime('%d %B %Y') if due_date else 'Soon'}
+Points: {assignment['points_possible']}
+Days available: {days_available}
+
+Create 4 specific study milestones as JSON:
+[
+  {{"title": "Research & Planning", "description": "Specific research tasks for this assignment", "days_before_due": 7}},
+  {{"title": "First Draft", "description": "Writing/creation tasks", "days_before_due": 4}},
+  {{"title": "Review & Edit", "description": "Improvement tasks", "days_before_due": 2}},
+  {{"title": "Final Polish", "description": "Final preparation", "days_before_due": 1}}
+]"""
+
+            response = self.ai_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            ai_text = response.content[0].text
+            start_idx = ai_text.find('[')
+            end_idx = ai_text.rfind(']') + 1
+
+            if start_idx != -1 and end_idx != -1:
+                milestones_data = json.loads(ai_text[start_idx:end_idx])
+
+                milestones = []
+                for milestone_data in milestones_data:
+                    target_date = due_date - timedelta(days=milestone_data.get('days_before_due', 1))
+
+                    if target_date <= datetime.now():
+                        target_date = datetime.now() + timedelta(days=1)
+
+                    milestones.append({
+                        'title': milestone_data.get('title', 'Study Task'),
+                        'description': milestone_data.get('description', 'Work on assignment'),
+                        'target_date': target_date
+                    })
+
+                return milestones
+
+        except Exception as e:
+            print(f"AI milestone generation failed: {e}")
+
+        return self._create_fallback_milestones_without_saving(assignment)
+
+    def _create_fallback_milestones_without_saving(self, assignment):
+        """Create fallback milestones without saving"""
+        due_date = assignment['due_date']
+        days_available = max((due_date - datetime.now()).days, 1) if due_date else 14
+
+        milestones = [
+            {
+                'title': 'Research & Planning',
+                'description': f'Research topic and create outline for {assignment["assignment_name"]}',
+                'target_date': due_date - timedelta(days=min(7, days_available - 1))
+            },
+            {
+                'title': 'First Draft',
+                'description': 'Write first draft focusing on main content',
+                'target_date': due_date - timedelta(days=min(4, days_available - 1))
+            },
+            {
+                'title': 'Review & Edit',
+                'description': 'Review content, improve structure and arguments',
+                'target_date': due_date - timedelta(days=min(2, days_available - 1))
+            },
+            {
+                'title': 'Final Polish',
+                'description': 'Proofread, format, and prepare final submission',
+                'target_date': due_date - timedelta(days=1)
+            }
+        ]
+
+        # Adjust dates that are in the past
+        for milestone in milestones:
+            if milestone['target_date'] <= datetime.now():
+                milestone['target_date'] = datetime.now() + timedelta(hours=12)
+
+        return milestones
+
+    def _safe_datetime_to_string(self, dt):
+        """Safely convert datetime to ISO string"""
+        if dt is None:
+            return None
+
+        if isinstance(dt, str):
+            # Already a string, validate it's a valid datetime
+            try:
+                datetime.fromisoformat(dt)
+                return dt
+            except:
+                return datetime.now().isoformat()
+
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+
+        # Fallback
+        return datetime.now().isoformat()
+
+    def _validate_inputs(self, student, assignment, milestones):
+        """Validate inputs before saving to database"""
+        errors = []
+
+        # Validate student
+        if not student or not isinstance(student, dict):
+            errors.append("Invalid student data")
+        elif 'id' not in student:
+            errors.append("Student missing ID")
+
+        # Validate assignment
+        if not assignment or not isinstance(assignment, dict):
+            errors.append("Invalid assignment data")
+        elif 'assignment_name' not in assignment:
+            errors.append("Assignment missing name")
+
+        # Validate milestones
+        if not milestones or not isinstance(milestones, list):
+            errors.append("Invalid milestones data")
+        elif len(milestones) == 0:
+            errors.append("No milestones to save")
+
+        # Validate each milestone
+        for i, milestone in enumerate(milestones):
+            if not isinstance(milestone, dict):
+                errors.append(f"Milestone {i + 1} is not a dictionary")
+                continue
+
+            if 'title' not in milestone or not milestone['title']:
+                errors.append(f"Milestone {i + 1} missing title")
+
+            if 'description' not in milestone:
+                errors.append(f"Milestone {i + 1} missing description")
+
+            if 'target_date' not in milestone:
+                errors.append(f"Milestone {i + 1} missing target_date")
+
+        return errors
+
+    def _save_milestones(self, student, assignment, milestones):
+        """Save milestones to database with improved error handling"""
+        try:
+            # Validate inputs first
+            validation_errors = self._validate_inputs(student, assignment, milestones)
+            if validation_errors:
+                error_msg = f"Validation failed: {'; '.join(validation_errors)}"
+                st.error(error_msg)
+                print(error_msg)
+                return False
 
             assignment_id = assignment.get('assignment_id', str(hash(assignment['assignment_name'])))
             student_id = student.get('id', 'student')
 
-            # Clear existing milestones
-            cursor.execute('DELETE FROM simple_milestones WHERE student_id = ? AND assignment_id = ?',
-                           (student_id, assignment_id))
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            cursor = conn.cursor()
 
-            # Save new milestones
-            for milestone in milestones:
+            try:
+                # Check if student exists in students table (if foreign key constraints are enabled)
+                cursor.execute('SELECT COUNT(*) FROM students WHERE id = ?', (student_id,))
+                student_exists = cursor.fetchone()[0] > 0
+
+                if not student_exists:
+                    # Create a placeholder student record if it doesn't exist
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO students (id, family_id, name, age, year_level, interests)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (student_id, 'placeholder_family', student.get('name', 'Unknown'), 16, 11, '[]'))
+
+                # Clear existing milestones for this assignment
+                cursor.execute('DELETE FROM simple_milestones WHERE student_id = ? AND assignment_id = ?',
+                               (student_id, assignment_id))
+
+                # Save new milestones
+                saved_count = 0
+                for i, milestone in enumerate(milestones):
+                    try:
+                        # Safely convert target_date to string
+                        target_date_str = self._safe_datetime_to_string(milestone['target_date'])
+
+                        cursor.execute('''
+                            INSERT INTO simple_milestones 
+                            (student_id, assignment_id, assignment_name, title, description, target_date)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (
+                            student_id,
+                            assignment_id,
+                            assignment['assignment_name'][:200],  # Truncate long names
+                            milestone['title'][:200],  # Truncate long titles
+                            milestone['description'][:500],  # Truncate long descriptions
+                            target_date_str
+                        ))
+                        saved_count += 1
+
+                    except Exception as milestone_error:
+                        error_msg = f"Error saving milestone {i + 1}: {str(milestone_error)}"
+                        st.error(error_msg)
+                        print(error_msg)
+
+                conn.commit()
+                return True
+
+            except Exception as db_error:
+                conn.rollback()
+                error_msg = f"Database operation failed: {str(db_error)}"
+                st.error(error_msg)
+                print(error_msg)
+                return False
+
+            finally:
+                conn.close()
+
+        except Exception as e:
+            error_msg = f"Error saving milestones: {str(e)}"
+            st.error(error_msg)
+            print(error_msg)
+            return False
+
+    def _save_single_milestone(self, student, assignment, milestone):
+        """Save a single milestone to existing plan with improved error handling"""
+        try:
+            # Validate inputs
+            validation_errors = self._validate_inputs(student, assignment, [milestone])
+            if validation_errors:
+                error_msg = f"Validation failed: {'; '.join(validation_errors)}"
+                st.error(error_msg)
+                return False
+
+            assignment_id = assignment.get('assignment_id', str(hash(assignment['assignment_name'])))
+            student_id = student.get('id', 'student')
+
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            cursor = conn.cursor()
+
+            try:
+                target_date_str = self._safe_datetime_to_string(milestone['target_date'])
+
                 cursor.execute('''
                     INSERT INTO simple_milestones 
                     (student_id, assignment_id, assignment_name, title, description, target_date)
@@ -556,22 +791,35 @@ Create 4 specific study milestones as JSON:
                 ''', (
                     student_id,
                     assignment_id,
-                    assignment['assignment_name'],
-                    milestone['title'],
-                    milestone['description'],
-                    milestone['target_date'].isoformat()
+                    assignment['assignment_name'][:200],
+                    milestone['title'][:200],
+                    milestone['description'][:500],
+                    target_date_str
                 ))
 
-            conn.commit()
-            conn.close()
+                conn.commit()
+                return True
+
+            except Exception as db_error:
+                conn.rollback()
+                error_msg = f"Database error saving single milestone: {str(db_error)}"
+                st.error(error_msg)
+                print(error_msg)
+                return False
+
+            finally:
+                conn.close()
 
         except Exception as e:
-            print(f"Error saving milestones: {e}")
+            error_msg = f"Error saving single milestone: {str(e)}"
+            st.error(error_msg)
+            print(error_msg)
+            return False
 
     def get_milestones_for_assignment(self, student_id, assignment_id):
-        """Get milestones for an assignment"""
+        """Get milestones for an assignment with improved error handling"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -595,24 +843,54 @@ Create 4 specific study milestones as JSON:
             return milestones
 
         except Exception as e:
-            print(f"Error getting milestones: {e}")
+            st.error(f"Error getting milestones: {e}")
             return []
 
     def mark_milestone_completed(self, milestone_id):
-        """Mark milestone as completed"""
+        """Mark milestone as completed with improved error handling"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
             cursor = conn.cursor()
 
             cursor.execute('UPDATE simple_milestones SET completed = TRUE WHERE id = ?', (milestone_id,))
 
+            if cursor.rowcount > 0:
+                conn.commit()
+                return True
+            else:
+                return False
+
+        except Exception as e:
+            st.error(f"Error marking milestone complete: {e}")
+            return False
+
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
+
+    def clear_milestones_for_assignment(self, student_id, assignment_id):
+        """Clear existing milestones for an assignment with improved error handling"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            cursor = conn.cursor()
+
+            cursor.execute('DELETE FROM simple_milestones WHERE student_id = ? AND assignment_id = ?',
+                           (student_id, assignment_id))
+
             conn.commit()
-            conn.close()
             return True
 
         except Exception as e:
-            print(f"Error marking milestone complete: {e}")
+            st.error(f"Error clearing milestones: {e}")
             return False
+
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
 
 
 # UI Functions
@@ -953,9 +1231,10 @@ def show_milestone_section(student, canvas_integrator):
 
 
 def show_milestone_option_for_assignment(student, assignment, milestone_gen):
-    """Show milestone generation option for a single assignment"""
+    """Interactive milestone selection system"""
     due_date = assignment['due_date']
     days_until = (due_date - datetime.now()).days if due_date else 0
+    assignment_key = assignment.get('assignment_id', str(hash(assignment['assignment_name'])))
 
     # Assignment info card
     with st.expander(f"📚 {assignment['assignment_name']} ({assignment['course_name']})", expanded=False):
@@ -969,100 +1248,399 @@ def show_milestone_option_for_assignment(student, assignment, milestone_gen):
             **Time available:** {days_until} days
             """)
 
-            # Check if milestones already exist
+            # Check for existing milestones in tracker
             existing_milestones = milestone_gen.get_milestones_for_assignment(
-                student['id'],
-                assignment.get('assignment_id', str(hash(assignment['assignment_name'])))
+                student['id'], assignment_key
             )
 
             if existing_milestones:
-                show_existing_milestones(assignment, existing_milestones, milestone_gen)
+                show_existing_milestones_with_add_option(assignment, existing_milestones, milestone_gen, student)
             else:
-                st.markdown("**Generate a smart study plan** that breaks this assignment into daily tasks:")
-                st.markdown("• Research and planning phase")
-                st.markdown("• Content development phase")
-                st.markdown("• Writing/creation phase")
-                st.markdown("• Review and finalisation phase")
+                show_milestone_generation_and_selection(student, assignment, milestone_gen, assignment_key, days_until)
 
         with col2:
-            if not existing_milestones:
-                if st.button(f"🧠 Generate Study Plan",
-                             key=f"gen_{assignment.get('assignment_id', hash(assignment['assignment_name']))}",
-                             use_container_width=True):
-                    generate_milestones_for_assignment(student, assignment, milestone_gen)
-            else:
+            if existing_milestones:
+                # Show progress for existing milestones
                 completed = len([m for m in existing_milestones if m.get('completed', False)])
                 total = len(existing_milestones)
                 st.metric("Progress", f"{completed}/{total}")
 
-                if st.button("🔄 Regenerate",
-                             key=f"regen_{assignment.get('assignment_id', hash(assignment['assignment_name']))}",
+                if st.button("🔄 Start Over",
+                             key=f"restart_{assignment_key}",
                              use_container_width=True):
-                    generate_milestones_for_assignment(student, assignment, milestone_gen)
+                    # Clear existing milestones and start fresh
+                    milestone_gen.clear_milestones_for_assignment(student['id'], assignment_key)
+                    # Clear session state for this assignment
+                    for key in list(st.session_state.keys()):
+                        if assignment_key in key:
+                            del st.session_state[key]
+                    st.success("Cleared study plan. Generate a new one below!")
+                    st.rerun()
+            else:
+                # Show generate button
+                if st.button(f"🧠 Generate Study Plan Ideas",
+                             key=f"gen_{assignment_key}",
+                             use_container_width=True):
+                    st.session_state[f"generate_for_{assignment_key}"] = True
+                    st.rerun()
 
 
-def show_existing_milestones(assignment, milestones, milestone_gen):
-    """Show existing milestones"""
-    st.markdown(f"**Study plan active** ({len(milestones)} milestones):")
+def show_milestone_generation_and_selection(student, assignment, milestone_gen, assignment_key, days_until):
+    """Show AI generation and interactive selection interface"""
 
-    for i, milestone in enumerate(milestones, 1):
-        target_date = milestone.get('target_date')
-        if isinstance(target_date, str):
-            target_date = datetime.fromisoformat(target_date)
+    # Check if we should generate milestones
+    if st.session_state.get(f"generate_for_{assignment_key}", False):
 
-        days_until = (target_date - datetime.now()).days if target_date else 0
-        completed = milestone.get('completed', False)
+        # Generate AI milestones (but don't save them yet)
+        if f"ai_suggestions_{assignment_key}" not in st.session_state:
+            with st.spinner("🧠 AI is creating study plan suggestions..."):
+                try:
+                    # Generate milestones but don't save them
+                    ai_milestones = milestone_gen._create_ai_milestones_without_saving(student, assignment)
+                    if not ai_milestones:
+                        ai_milestones = milestone_gen._create_fallback_milestones_without_saving(assignment)
 
-        if completed:
-            status = "✅"
-        elif days_until < 0:
-            status = "🔴"
-        elif days_until <= 1:
-            status = "🟡"
-        else:
-            status = "🟢"
+                    st.session_state[f"ai_suggestions_{assignment_key}"] = ai_milestones
+                    st.success(f"✨ Generated {len(ai_milestones)} study plan suggestions!")
 
-        col1, col2 = st.columns([4, 1])
+                except Exception as e:
+                    st.error(f"Error generating suggestions: {str(e)}")
+                    ai_milestones = milestone_gen._create_fallback_milestones_without_saving(assignment)
+                    st.session_state[f"ai_suggestions_{assignment_key}"] = ai_milestones
 
-        with col1:
-            st.markdown(
-                f"{status} **{milestone['title']}** - {target_date.strftime('%d %b') if target_date else 'No date'}")
-            st.markdown(f"   {milestone.get('description', '')[:100]}...")
+        # Show the interactive selection interface
+        ai_milestones = st.session_state[f"ai_suggestions_{assignment_key}"]
+        show_milestone_selection_interface(student, assignment, milestone_gen, assignment_key, ai_milestones)
 
-        with col2:
-            if not completed and st.button("✅", key=f"complete_{milestone.get('id', i)}", help="Mark complete"):
-                milestone_gen.mark_milestone_completed(milestone.get('id', i))
-                st.success("Completed!")
-                st.rerun()
+    else:
+        # Show initial generation option
+        st.markdown("**Get AI-powered study plan suggestions** that you can customise:")
+        st.markdown("• Research and planning tasks")
+        st.markdown("• Content development phases")
+        st.markdown("• Review and finalisation steps")
+        st.markdown("• **Choose which ones you want to keep!**")
 
 
-def generate_milestones_for_assignment(student, assignment, milestone_gen):
-    """Generate milestones for assignment"""
-    with st.spinner("🧠 Creating your personalised study plan..."):
-        milestones = milestone_gen.create_milestones_for_assignment(student, assignment)
+def show_milestone_selection_interface(student, assignment, milestone_gen, assignment_key, ai_milestones):
+    """Interactive interface for selecting and customising milestones"""
 
-        if milestones:
-            st.success(f"✨ Created {len(milestones)} study milestones!")
+    st.markdown("### 🎯 Choose Your Study Plan")
+    st.markdown("**Select which milestones you want to keep, edit them, and add your own:**")
+
+    # Create tabs for different sections
+    tab1, tab2 = st.tabs(["🤖 AI Suggestions", "➕ Add Your Own"])
+
+    with tab1:
+        st.markdown("**AI-Generated Study Plan Suggestions:**")
+        st.markdown("*Select the ones you want to keep and customise them:*")
+
+        selected_milestones = []
+
+        # Show each AI milestone with selection options
+        for i, milestone in enumerate(ai_milestones):
+            milestone_container = st.container()
+
+            with milestone_container:
+                # Checkbox to select this milestone
+                selected = st.checkbox(
+                    f"**{milestone['title']}**",
+                    key=f"select_{assignment_key}_{i}",
+                    value=True  # Default to selected
+                )
+
+                if selected:
+                    col1, col2 = st.columns([2, 1])
+
+                    with col1:
+                        # Editable description
+                        custom_description = st.text_area(
+                            "Description:",
+                            value=milestone.get('description', ''),
+                            key=f"desc_{assignment_key}_{i}",
+                            height=70
+                        )
+
+                    with col2:
+                        # Editable due date
+                        target_date = milestone.get('target_date')
+                        if isinstance(target_date, str):
+                            target_date = datetime.fromisoformat(target_date)
+
+                        custom_date = st.date_input(
+                            "Target Date:",
+                            value=target_date.date() if target_date else datetime.now().date(),
+                            key=f"date_{assignment_key}_{i}"
+                        )
+
+                        # Convert back to datetime
+                        custom_datetime = datetime.combine(custom_date, datetime.min.time())
+
+                    # Add to selected milestones
+                    selected_milestones.append({
+                        'title': milestone['title'],
+                        'description': custom_description,
+                        'target_date': custom_datetime
+                    })
+
+                st.markdown("---")
+
+        # Store selected milestones in session state
+        st.session_state[f"selected_milestones_{assignment_key}"] = selected_milestones
+
+    with tab2:
+        st.markdown("**Add Your Own Custom Milestones:**")
+
+        # Initialize custom milestones in session state
+        if f"custom_milestones_{assignment_key}" not in st.session_state:
+            st.session_state[f"custom_milestones_{assignment_key}"] = []
+
+        custom_milestones = st.session_state[f"custom_milestones_{assignment_key}"]
+
+        # Form to add new custom milestone
+        with st.form(f"add_custom_{assignment_key}"):
+            st.markdown("**Add a new milestone:**")
+
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                custom_title = st.text_input("Milestone Title:", placeholder="e.g., Meet with teacher for feedback")
+                custom_desc = st.text_area("Description:",
+                                           placeholder="e.g., Discuss essay structure and get clarification on requirements",
+                                           height=70)
+
+            with col2:
+                custom_date = st.date_input("Target Date:", value=datetime.now().date())
+
+            if st.form_submit_button("➕ Add Milestone"):
+                if custom_title and custom_desc:
+                    new_milestone = {
+                        'title': custom_title,
+                        'description': custom_desc,
+                        'target_date': datetime.combine(custom_date, datetime.min.time())
+                    }
+                    st.session_state[f"custom_milestones_{assignment_key}"].append(new_milestone)
+                    st.success(f"Added: {custom_title}")
+                    st.rerun()
+
+        # Show existing custom milestones
+        if custom_milestones:
+            st.markdown("**Your Custom Milestones:**")
+            for i, milestone in enumerate(custom_milestones):
+                col1, col2 = st.columns([4, 1])
+
+                with col1:
+                    st.markdown(f"**{milestone['title']}**")
+                    st.markdown(f"*{milestone['description']}*")
+                    st.markdown(f"📅 {milestone['target_date'].strftime('%d %b %Y')}")
+
+                with col2:
+                    if st.button("🗑️", key=f"remove_custom_{assignment_key}_{i}", help="Remove this milestone"):
+                        st.session_state[f"custom_milestones_{assignment_key}"].pop(i)
+                        st.rerun()
+
+    # Final save section
+    st.markdown("---")
+    st.markdown("### 💾 Save Your Study Plan")
+
+    # Count total milestones
+    selected_count = len(st.session_state.get(f"selected_milestones_{assignment_key}", []))
+    custom_count = len(st.session_state.get(f"custom_milestones_{assignment_key}", []))
+    total_count = selected_count + custom_count
+
+    st.markdown(
+        f"**Ready to save:** {selected_count} AI suggestions + {custom_count} custom milestones = **{total_count} total milestones**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("💾 Save My Study Plan", use_container_width=True, type="primary"):
+            if total_count > 0:
+                save_selected_milestones(student, assignment, milestone_gen, assignment_key)
+            else:
+                st.warning("Please select at least one milestone to save!")
+
+    with col2:
+        if st.button("🔄 Get New AI Suggestions", use_container_width=True):
+            # Clear AI suggestions to regenerate
+            if f"ai_suggestions_{assignment_key}" in st.session_state:
+                del st.session_state[f"ai_suggestions_{assignment_key}"]
+            st.rerun()
+
+
+def save_selected_milestones(student, assignment, milestone_gen, assignment_key):
+    """Save the selected and custom milestones to the tracker with improved error handling"""
+
+    try:
+        selected_milestones = st.session_state.get(f"selected_milestones_{assignment_key}", [])
+        custom_milestones = st.session_state.get(f"custom_milestones_{assignment_key}", [])
+
+        all_milestones = selected_milestones + custom_milestones
+
+        if not all_milestones:
+            st.error("No milestones to save!")
+            return
+
+        # Clear any existing milestones first
+        clear_success = milestone_gen.clear_milestones_for_assignment(student['id'], assignment_key)
+        if not clear_success:
+            st.error("Failed to clear existing milestones")
+            return
+
+        # Save the selected milestones
+        save_success = milestone_gen._save_milestones(student, assignment, all_milestones)
+
+        if save_success:
+            # Clear session state only if save was successful
+            for key in list(st.session_state.keys()):
+                if assignment_key in key:
+                    del st.session_state[key]
+
+            st.success(f"🎉 Successfully saved {len(all_milestones)} milestones to your study tracker!")
             st.balloons()
 
-            # Show generated milestones
-            st.markdown("**Your new study plan:**")
-            for i, milestone in enumerate(milestones, 1):
-                target_date = milestone.get('target_date')
-                if isinstance(target_date, str):
-                    target_date = datetime.fromisoformat(target_date)
-
-                days_until = (target_date - datetime.now()).days if target_date else 0
-                st.markdown(
-                    f"**{i}. {milestone['title']}** - {target_date.strftime('%d %b') if target_date else 'Soon'} ({days_until} days)")
-                st.markdown(f"   {milestone.get('description', '')}")
-
+            # Small delay then refresh to show the saved milestones
+            time.sleep(1)
             st.rerun()
         else:
-            st.error("Failed to generate study plan. Please try again.")
+            st.error("Failed to save milestones. Please check the error messages above and try again.")
+
+    except Exception as e:
+        error_msg = f"Error in save_selected_milestones: {str(e)}"
+        st.error(error_msg)
+        print(error_msg)
 
 
-# Integration function for main app
+def show_existing_milestones_with_add_option(assignment, existing_milestones, milestone_gen, student):
+    """Show existing milestones with option to add more"""
+
+    assignment_key = assignment.get('assignment_id', str(hash(assignment['assignment_name'])))
+
+    st.markdown(f"**✅ Active Study Plan** ({len(existing_milestones)} milestones):")
+
+    # Show progress bar
+    completed_count = len([m for m in existing_milestones if m.get('completed', False)])
+    progress = completed_count / len(existing_milestones) if existing_milestones else 0
+    st.progress(progress, text=f"Progress: {completed_count}/{len(existing_milestones)} completed ({progress:.0%})")
+
+    # Show existing milestones
+    for i, milestone in enumerate(existing_milestones):
+        show_milestone_card(milestone, i, milestone_gen)
+
+    # Option to add more milestones
+    st.markdown("---")
+    # Option to add more milestones
+    st.markdown("---")
+
+    # Use a button toggle instead of nested expander
+    show_add_form_key = f"show_add_form_{assignment_key}"
+
+    if st.button("➕ Add More Milestones", use_container_width=True):
+        st.session_state[show_add_form_key] = not st.session_state.get(show_add_form_key, False)
+
+    if st.session_state.get(show_add_form_key, False):
+        st.markdown("**Add another milestone to this study plan:**")
+
+        with st.form(f"add_more_{assignment_key}"):
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                new_title = st.text_input("Milestone Title:", placeholder="e.g., Practice presentation")
+                new_desc = st.text_area("Description:", placeholder="e.g., Rehearse presentation timing and slides",
+                                        height=70)
+
+            with col2:
+                new_date = st.date_input("Target Date:", value=datetime.now().date())
+
+            col1_form, col2_form = st.columns(2)
+            with col1_form:
+                submitted = st.form_submit_button("➕ Add to Study Plan", use_container_width=True)
+            with col2_form:
+                cancel = st.form_submit_button("Cancel", use_container_width=True)
+
+            if cancel:
+                st.session_state[show_add_form_key] = False
+                st.rerun()
+
+            if submitted:
+                if new_title and new_desc:
+                    try:
+                        # Add single milestone to existing plan
+                        new_milestone = {
+                            'title': new_title,
+                            'description': new_desc,
+                            'target_date': datetime.combine(new_date, datetime.min.time())
+                        }
+
+                        milestone_gen._save_single_milestone(student, assignment, new_milestone)
+                        st.success(f"Added: {new_title}")
+                        st.session_state[show_add_form_key] = False  # Hide form after successful add
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Error adding milestone: {str(e)}")
+                else:
+                    st.error("Please fill in both title and description.")
+
+def show_milestone_card(milestone, index, milestone_gen):
+    """Show a single milestone card with completion option"""
+
+    target_date = milestone.get('target_date')
+    if isinstance(target_date, str):
+        try:
+            target_date = datetime.fromisoformat(target_date)
+        except:
+            target_date = None
+
+    days_until = (target_date - datetime.now()).days if target_date else 0
+    completed = milestone.get('completed', False)
+
+    if completed:
+        status = "✅"
+        status_color = "#10b981"
+        status_text = "Completed"
+    elif days_until < 0:
+        status = "🔴"
+        status_color = "#dc2626"
+        status_text = f"{abs(days_until)} days overdue"
+    elif days_until == 0:
+        status = "🟡"
+        status_color = "#f59e0b"
+        status_text = "Due today"
+    elif days_until <= 2:
+        status = "🟡"
+        status_color = "#f59e0b"
+        status_text = f"Due in {days_until} days"
+    else:
+        status = "🟢"
+        status_color = "#10b981"
+        status_text = f"Due in {days_until} days"
+
+    # Create milestone card
+    col1, col2 = st.columns([5, 1])
+
+    with col1:
+        st.markdown(f"""
+        <div style="border-left: 4px solid {status_color}; padding: 12px; margin: 8px 0; background: #f9fafb; border-radius: 4px;">
+            <div style="font-weight: 600; font-size: 16px;">{status} {milestone['title']}</div>
+            <div style="color: #6b7280; margin: 6px 0; line-height: 1.4;">{milestone.get('description', '')}</div>
+            <div style="font-size: 13px; color: {status_color}; font-weight: 500;">
+                📅 {target_date.strftime('%A, %d %b') if target_date else 'No date'} • {status_text}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        if not completed:
+            if st.button("✅ Done", key=f"complete_{milestone.get('id', index)}", use_container_width=True):
+                success = milestone_gen.mark_milestone_completed(milestone.get('id', index))
+                if success:
+                    st.success("Completed! 🎉")
+                    st.balloons()
+                    time.sleep(1)
+                    st.rerun()
+
+
+# Integration function for main app - THIS IS THE MISSING FUNCTION!
 def add_canvas_to_family_interface():
     """Add Canvas integration to the family interface"""
     if 'authenticated_family' not in st.session_state:

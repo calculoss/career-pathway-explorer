@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from ai_milestone_generator import AIStudyMilestoneGenerator
-from milestone_web_interface import enhanced_show_assignments_table
+
 
 
 def add_milestone_generation_to_assignments():
