@@ -11,54 +11,340 @@ from advanced_data_manager import AdvancedEducationDataManager, PDFReportGenerat
 from data_collector import AustralianEducationDataCollector
 from live_data_collector import LiveEmploymentDataCollector
 
-# Load environment variables
-load_dotenv()
-
 # Page configuration
 st.set_page_config(
-    page_title="Professional Career Pathway Explorer",
-    page_icon="🎓",
+    page_title="CareerPath Personal | Rosa & Reuben Career Guidance",
+    page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for professional styling
+# Professional CSS - Khan Academy style
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #2c3e50;
-        text-align: center;
-        padding: 1rem 0;
-        border-bottom: 2px solid #3498db;
-        margin-bottom: 2rem;
+    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap');
+
+    /* Global Styles */
+    .stApp {
+        background-color: #f7f8fa;
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Remove Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display: none;}
+    header[data-testid="stHeader"] {
+        background: rgba(0,0,0,0);
+        height: 0rem;
+    }
+
+    /* Main container */
+    .main-content {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin: 24px auto;
+        max-width: 1200px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e5e5;
+    }
+
+    /* Header */
+    .site-header {
+        background: white;
+        border-bottom: 1px solid #e5e5e5;
+        padding: 16px 0;
+        margin-bottom: 32px;
+    }
+
+    .site-header .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+    }
+
+    .logo {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1c4980;
+        text-decoration: none;
+    }
+
+    .logo-subtitle {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 400;
+        margin-left: 8px;
+    }
+
+    /* Typography */
+    .page-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1c4980;
+        margin-bottom: 8px;
+        line-height: 1.2;
+    }
+
+    .page-subtitle {
+        font-size: 18px;
+        color: #6b7280;
+        margin-bottom: 32px;
+        line-height: 1.4;
+    }
+
+    .section-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 16px;
+        margin-top: 32px;
+    }
+
+    .section-subtitle {
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 24px;
+    }
+
+    /* Student selection cards */
+    .student-selection {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin: 32px 0;
     }
 
     .student-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 10px;
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 32px;
+        text-align: center;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .student-card:hover {
+        border-color: #1c4980;
+        box-shadow: 0 4px 12px rgba(28, 73, 128, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .student-card.rosa {
+        border-left: 4px solid #e74c3c;
+    }
+
+    .student-card.reuben {
+        border-left: 4px solid #3498db;
+    }
+
+    .student-name {
+        font-size: 24px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    .student-year {
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 16px;
+    }
+
+    .student-interests {
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+
+    .student-timeline {
+        font-size: 14px;
+        color: #374151;
+        font-weight: 500;
+    }
+
+    /* Chat interface */
+    .chat-container {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 24px 0;
+    }
+
+    .chat-header {
+        background: #f9fafb;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .chat-header.rosa {
+        background: #fef2f2;
+        border-color: #fecaca;
+    }
+
+    .chat-header.reuben {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+    }
+
+    .chat-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    .chat-subtitle {
+        font-size: 16px;
+        color: #6b7280;
+    }
+
+    /* Sidebar styling */
+    .sidebar-content {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .sidebar-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 12px;
+    }
+
+    .sidebar-item {
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+
+    /* Button styling */
+    .stButton > button {
+        background-color: #1c4980;
         color: white;
-        margin: 1rem 0;
+        border: 1px solid #1c4980;
+        border-radius: 6px;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: 'Lato', sans-serif;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .stButton > button:hover {
+        background-color: #164373;
+        border-color: #164373;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Input styling */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 12px 16px;
+        font-size: 16px;
+        font-family: 'Lato', sans-serif;
+        background: white;
+        transition: border-color 0.2s ease;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #1c4980;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(28, 73, 128, 0.1);
+    }
+
+    /* Data dashboard */
+    .data-dashboard {
+        background: #f9fafb;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 24px 0;
+    }
+
+    .dashboard-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 16px;
     }
 
     .metric-card {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #3498db;
-        margin: 0.5rem 0;
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 6px;
+        padding: 16px;
+        text-align: center;
+        margin-bottom: 12px;
     }
 
-    .feature-badge {
-        background: #27ae60;
-        color: white;
-        padding: 0.3rem 0.8rem;
-        border-radius: 15px;
-        font-size: 0.85rem;
-        margin: 0.2rem;
-        display: inline-block;
+    .metric-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1c4980;
+        margin-bottom: 4px;
+    }
+
+    .metric-label {
+        font-size: 14px;
+        color: #6b7280;
+    }
+
+    /* Features list */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin: 24px 0;
+    }
+
+    .feature-item {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 6px;
+        padding: 16px;
+        text-align: center;
+        font-size: 14px;
+        color: #0c4a6e;
+        font-weight: 500;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .main-content {
+            margin: 16px;
+            padding: 24px;
+        }
+
+        .site-header .container {
+            padding: 0 24px;
+        }
+
+        .student-selection {
+            grid-template-columns: 1fr;
+        }
+
+        .features-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -66,12 +352,10 @@ st.markdown("""
 
 class WebCareerExplorerAgent:
     def __init__(self):
-        # Cloud-compatible API key loading
+        # API setup
         try:
-            # Try Streamlit secrets first (for cloud deployment)
             api_key = st.secrets["ANTHROPIC_API_KEY"]
         except:
-            # Fall back to .env file (for local development)
             load_dotenv()
             api_key = os.getenv("ANTHROPIC_API_KEY")
 
@@ -125,27 +409,37 @@ class WebCareerExplorerAgent:
             }
         }
 
+        self.conversation_history = []
+        self.current_student = None
+
     def load_education_data(self):
         """Load education data"""
         try:
             with open('education_data.json', 'r', encoding='utf-8') as f:
                 self.education_data = json.load(f)
         except FileNotFoundError:
-            # Create fresh data if needed
             collector = AustralianEducationDataCollector()
             collector.save_data_to_file('education_data.json')
             with open('education_data.json', 'r', encoding='utf-8') as f:
                 self.education_data = json.load(f)
 
-    def format_education_data_for_prompt(self, student_name):
-        """Enhanced education data formatting with live government data"""
+    def load_live_data(self):
+        """Load live employment data"""
+        try:
+            with open('live_employment_data.json', 'r', encoding='utf-8') as f:
+                self.live_data = json.load(f)
+        except:
+            self.live_data = {
+                'abs_employment': {'unemployment_rate': '3.8%', 'participation_rate': '66.8%'},
+                'university_stats': {'overall_employment_rate': '89.1%', 'arts_employment_rate': '84.2%'}
+            }
 
-        # Get conversation history for context
+    def format_education_data_for_prompt(self, student_name):
+        """Format education data for AI prompt"""
         history = self.data_manager.get_conversation_history(student_name, limit=3)
 
         data_summary = "CURRENT AUSTRALIAN EDUCATION & CAREER DATA WITH LIVE GOVERNMENT UPDATES:\n\n"
 
-        # Previous conversation context
         if history:
             data_summary += "RECENT CONVERSATION CONTEXT:\n"
             for conv in history[-3:]:
@@ -153,62 +447,35 @@ class WebCareerExplorerAgent:
                 data_summary += f"• Previous topic: {topics}\n"
             data_summary += "\n"
 
-        # LIVE GOVERNMENT EMPLOYMENT DATA
+        # Live data
         abs_data = self.live_data.get('abs_employment', {})
         data_summary += "LIVE AUSTRALIAN EMPLOYMENT DATA (ABS):\n"
         data_summary += f"• Current Unemployment Rate: {abs_data.get('unemployment_rate', 'N/A')}\n"
-        data_summary += f"• Labor Participation Rate: {abs_data.get('participation_rate', 'N/A')}\n"
-        data_summary += f"• Employment Growth: {abs_data.get('employment_growth', 'N/A')}\n"
-        data_summary += f"• Source: {abs_data.get('source', 'Government data')}\n\n"
+        data_summary += f"• Labor Participation Rate: {abs_data.get('participation_rate', 'N/A')}\n\n"
 
-        # LIVE UNIVERSITY GRADUATE STATISTICS
         uni_stats = self.live_data.get('university_stats', {})
         data_summary += "LIVE UNIVERSITY GRADUATE EMPLOYMENT RATES:\n"
         data_summary += f"• Overall Graduate Employment: {uni_stats.get('overall_employment_rate', 'N/A')}\n"
-        data_summary += f"• Arts Graduate Employment: {uni_stats.get('arts_employment_rate', 'N/A')} (Rosa's field)\n"
-        data_summary += f"• Education Graduate Employment: {uni_stats.get('education_employment_rate', 'N/A')} (Reuben's field)\n"
-        data_summary += f"• Median Starting Salary: {uni_stats.get('median_starting_salary', 'N/A')}\n\n"
+        data_summary += f"• Arts Graduate Employment: {uni_stats.get('arts_employment_rate', 'N/A')} (Rosa's field)\n\n"
 
-        # LIVE CAREER OUTLOOK DATA
-        career_outlook = self.live_data.get('career_outlook', {})
-        if career_outlook:
-            data_summary += "LIVE CAREER-SPECIFIC EMPLOYMENT DATA:\n"
-            for career, data in career_outlook.items():
-                data_summary += f"• {career.title()}:\n"
-                data_summary += f"  - Employment Outlook: {data.get('employment_outlook', 'N/A')}\n"
-                data_summary += f"  - Weekly Earnings: {data.get('weekly_earnings', 'N/A')}\n"
-                data_summary += f"  - Current Employment Size: {data.get('employment_size', 'N/A')}\n"
-                data_summary += f"  - Growth Forecast: {data.get('growth_forecast', 'N/A')}\n"
-            data_summary += "\n"
-
-        # University data
+        # University and course data
         data_summary += "NSW/ACT UNIVERSITIES:\n"
         for uni, info in self.education_data['universities'].items():
             data_summary += f"• {uni} ({info['location']}): Strengths in {', '.join(info['strengths'])}\n"
 
-        # Course data
         data_summary += "\nRELEVANT COURSES:\n"
         for course, info in self.education_data['courses'].items():
             data_summary += f"• {course}: {info['duration']}, Prerequisites: {', '.join(info['prerequisites'])}\n"
             if 'lab_components' in info:
                 data_summary += f"  🔬 Lab work: {', '.join(info['lab_components'])}\n"
-            if 'macquarie_specific' in info:
-                data_summary += f"  🏛️ Macquarie features: {', '.join(info['macquarie_specific'])}\n"
-
-        # Army reserves data for Reuben
-        if student_name == "Reuben":
-            data_summary += "\nARMY RESERVES EDUCATION BENEFITS:\n"
-            for benefit, info in self.education_data['army_benefits'].items():
-                data_summary += f"• {benefit}: {info['description']} - {info.get('amount', 'Various benefits')}\n"
-
-        data_summary += f"\nDATA FRESHNESS: Live government data collected at {self.live_data.get('collection_timestamp', 'Unknown')}\n"
 
         return data_summary
+
     def create_system_prompt(self, student_name):
         profile = self.student_profiles.get(student_name, {})
         education_data = self.format_education_data_for_prompt(student_name)
 
-        return f"""You are a professional career guidance counselor with 25+ years of experience. You're providing personalized guidance to {student_name} through a web-based career exploration platform.
+        return f"""You are a professional career guidance counselor with 25+ years of experience. You're providing personalized guidance to {student_name}, building on previous conversations through our CareerPath Personal platform.
 
 STUDENT PROFILE - {student_name}:
 - Age: {profile.get('age', '')}
@@ -218,58 +485,35 @@ STUDENT PROFILE - {student_name}:
 - Timeline: {profile.get('timeline', '')}
 - Location Preference: {profile.get('location_preference', '')}
 - Career Considerations: {', '.join(profile.get('career_considerations', []))}
-- Current Goals: {', '.join(profile.get('goals', []))}
+- Goals: {', '.join(profile.get('goals', []))}
 
 {education_data}
 
-PLATFORM CAPABILITIES:
-- Web-based career exploration accessible from any device
-- Conversation memory across sessions
-- Real-time Australian university and career data
-- PDF career plan generation
-- Application deadline tracking
-- Family collaboration features
+PROFESSIONAL CAPABILITIES:
+- Live Australian university data and current application deadlines
+- Real employment statistics and salary benchmarks (2025 data)
+- Conversation memory (can reference previous discussions)
+- Professional career pathway planning
+- Access to NSW/ACT university information
 
-WEB INTERFACE CONTEXT:
-- Student is accessing this through a professional web interface
-- Can generate reports, track applications, view conversation history
-- Interface shows data visualizations and interactive elements
-- Mobile-friendly for access from school or anywhere
+CONVERSATION APPROACH:
+- Professional, warm, and supportive
+- Reference previous conversations when relevant
+- Use specific, current data from the database
+- Provide actionable next steps with deadlines
+- Be realistic about prospects while maintaining optimism
 
-RESPONSE STYLE:
-- Professional yet approachable for web interface
-- Use specific data from the Australian education database
-- Suggest actionable next steps with concrete timelines
-- Reference platform features when relevant
-- Keep responses concise but comprehensive for web reading
-- Encourage use of report generation and tracking features
-
-Focus on providing personalized, data-driven career guidance that takes advantage of the web platform's capabilities."""
+Focus on providing comprehensive support for {student_name}'s career journey."""
 
     def get_ai_response(self, user_message, student_name):
-        """Get response from Claude AI"""
         try:
-            # Extract topics for conversation tracking
+            self.conversation_history.append({"role": "user", "content": user_message})
+
             topics = self.extract_topics(user_message)
 
-            # Create system prompt with current data
-            system_prompt = self.create_system_prompt(student_name)
+            messages = [{"role": "user", "content": self.create_system_prompt(student_name)}]
+            messages.extend(self.conversation_history[-10:])
 
-            # Get recent conversation history for context
-            history = self.data_manager.get_conversation_history(student_name, limit=5)
-
-            # Build messages
-            messages = [{"role": "user", "content": system_prompt}]
-
-            # Add recent history for context
-            for conv in history[-3:]:  # Last 3 conversations
-                messages.append({"role": "user", "content": conv['user_message']})
-                messages.append({"role": "assistant", "content": conv['agent_response']})
-
-            # Add current message
-            messages.append({"role": "user", "content": user_message})
-
-            # Get AI response
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1500,
@@ -277,14 +521,15 @@ Focus on providing personalized, data-driven career guidance that takes advantag
             )
 
             assistant_response = response.content[0].text
+            self.conversation_history.append({"role": "assistant", "content": assistant_response})
 
-            # Save conversation to database
+            # Save conversation
             self.data_manager.save_conversation(student_name, user_message, assistant_response, topics)
 
             return assistant_response
 
         except Exception as e:
-            return f"I encountered an error: {str(e)}. Please check your API connection and try again."
+            return f"I encountered an error: {str(e)}. Please try again."
 
     def extract_topics(self, message):
         """Extract topic tags from user message"""
@@ -292,12 +537,10 @@ Focus on providing personalized, data-driven career guidance that takes advantag
         message_lower = message.lower()
 
         topic_keywords = {
-            'universities': ['university', 'uni', 'college', 'macquarie', 'sydney', 'newcastle', 'unsw', 'anu'],
+            'universities': ['university', 'uni', 'college', 'macquarie', 'sydney', 'newcastle'],
             'courses': ['course', 'degree', 'bachelor', 'program', 'study'],
             'careers': ['career', 'job', 'work', 'employment', 'salary'],
             'applications': ['apply', 'application', 'deadline', 'admission'],
-            'army_reserves': ['army', 'reserves', 'military', 'funding'],
-            'lab_work': ['lab', 'laboratory', 'practical', 'hands-on', 'fieldwork'],
             'anthropology': ['anthropology', 'archaeology', 'ancient', 'history'],
             'teaching': ['teaching', 'teacher', 'education', 'secondary']
         }
@@ -308,282 +551,212 @@ Focus on providing personalized, data-driven career guidance that takes advantag
 
         return topics if topics else ['general']
 
-    def load_live_data(self):
-        """Load live employment data"""
-        try:
-            with open('live_employment_data.json', 'r', encoding='utf-8') as f:
-                self.live_data = json.load(f)
-            print("📊 Live employment data loaded successfully")
-        except FileNotFoundError:
-            print("📊 No live data file found, collecting fresh data...")
-            # Collect fresh data
-            collector = LiveEmploymentDataCollector()
-            collector.save_live_data()
-            with open('live_employment_data.json', 'r', encoding='utf-8') as f:
-                self.live_data = json.load(f)
-        except Exception as e:
-            print(f"📊 Using fallback data: {e}")
-            self.live_data = self.get_fallback_live_data()
 
-    def get_fallback_live_data(self):
-        """Fallback live data"""
-        return {
-            'collection_timestamp': datetime.now().isoformat(),
-            'abs_employment': {
-                'unemployment_rate': '3.8%',
-                'participation_rate': '66.8%',
-                'employment_growth': '+2.1%',
-                'source': 'Australian Bureau of Statistics (cached)'
-            },
-            'university_stats': {
-                'overall_employment_rate': '89.1%',
-                'median_starting_salary': '$61,000',
-                'arts_employment_rate': '84.2%',
-                'education_employment_rate': '93.7%',
-                'source': 'Graduate Outcomes Survey'
-            },
-            'career_outlook': {
-                'anthropologists': {
-                    'employment_outlook': 'Moderate Growth',
-                    'weekly_earnings': '$1,450 per week',
-                    'employment_size': '2,500 employed',
-                    'growth_forecast': '4.2% growth forecast'
-                },
-                'teachers': {
-                    'employment_outlook': 'Strong Growth',
-                    'weekly_earnings': '$1,650 per week',
-                    'employment_size': '180,000 employed',
-                    'growth_forecast': '8.5% growth forecast'
-                }
-            }
-        }
+def create_header():
+    """Clean site header"""
+    st.markdown("""
+    <div class="site-header">
+        <div class="container">
+            <div>
+                <span class="logo">📚 CareerPath Personal</span>
+                <span class="logo-subtitle">Rosa & Reuben's Career Guidance Platform</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def create_dashboard():
-    """Create the main dashboard"""
+    """Create main dashboard"""
+    create_header()
 
-    # Header
-    st.markdown('<div class="main-header">🎓 Professional Career Pathway Explorer</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
-    # Feature badges
-    features = [
-        "✅ Live Australian University Data",
-        "✅ Conversation Memory",
-        "✅ Application Tracking",
-        "✅ PDF Career Reports",
-        "✅ Web Access Anywhere"
-    ]
+    st.markdown("""
+    <div class="page-title">Welcome to CareerPath Personal</div>
+    <div class="page-subtitle">Professional AI-powered career guidance for Rosa and Reuben with live Australian employment data</div>
+    """, unsafe_allow_html=True)
 
-    cols = st.columns(len(features))
-    for i, feature in enumerate(features):
-        with cols[i]:
-            st.markdown(f'<div class="feature-badge">{feature}</div>', unsafe_allow_html=True)
-
-    st.markdown("---")
+    # Features
+    st.markdown("""
+    <div class="features-grid">
+        <div class="feature-item">✅ Live Australian University Data</div>
+        <div class="feature-item">✅ Conversation Memory</div>
+        <div class="feature-item">✅ Application Tracking</div>
+        <div class="feature-item">✅ PDF Career Reports</div>
+        <div class="feature-item">✅ Professional Guidance</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def create_student_selector():
-    """Create student selection interface"""
+    """Create professional student selection"""
     agent = st.session_state.agent
+
+    st.markdown('<div class="section-title">Select Student</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="student-selection">
+        <div class="student-card rosa" onclick="selectRosa()">
+            <div class="student-name">🏛️ Rosa</div>
+            <div class="student-year">Year 11 • Age 16</div>
+            <div class="student-interests"><strong>Interests:</strong> Ancient History, Biological Anthropology, Writing</div>
+            <div class="student-timeline"><strong>Timeline:</strong> Applying in 12 months</div>
+        </div>
+
+        <div class="student-card reuben" onclick="selectReuben()">
+            <div class="student-name">👨‍🏫 Reuben</div>
+            <div class="student-year">Year 12 • Nearly 18</div>
+            <div class="student-interests"><strong>Interests:</strong> Modern History, Chinese Studies, Teaching</div>
+            <div class="student-timeline"><strong>Timeline:</strong> Applying now (Newcastle applied)</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("""
-        <div class="student-card">
-            <h3>🏛️ Rosa (Year 11)</h3>
-            <p><strong>Interests:</strong> Ancient History, Biological Anthropology, Writing</p>
-            <p><strong>Timeline:</strong> Applying in 12 months</p>
-            <p><strong>Focus:</strong> Lab-based learning, research opportunities</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Chat with Rosa", key="rosa_btn", use_container_width=True):
+        if st.button("Chat with Rosa", use_container_width=True):
             st.session_state.selected_student = "Rosa"
             st.rerun()
 
     with col2:
-        st.markdown("""
-        <div class="student-card">
-            <h3>👨‍🏫 Reuben (Year 12)</h3>
-            <p><strong>Interests:</strong> Modern History, Chinese Studies, Teaching</p>
-            <p><strong>Timeline:</strong> Applying now (Newcastle applied)</p>
-            <p><strong>Focus:</strong> Army Reserves funding, education career</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Chat with Reuben", key="reuben_btn", use_container_width=True):
+        if st.button("Chat with Reuben", use_container_width=True):
             st.session_state.selected_student = "Reuben"
             st.rerun()
 
 
 def create_chat_interface(student_name):
-    """Create the chat interface for selected student"""
+    """Create professional chat interface"""
     agent = st.session_state.agent
     profile = agent.student_profiles[student_name]
 
-    # Student header
+    # Chat header
+    css_class = student_name.lower()
     st.markdown(f"""
-    <div style="background: {profile['color']}; color: white; padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
-        <h2>{profile['emoji']} Chatting with {student_name}</h2>
-        <p><strong>Year {profile['year']}</strong> • {profile['timeline']}</p>
+    <div class="chat-header {css_class}">
+        <div class="chat-title">{profile['emoji']} Career Guidance for {student_name}</div>
+        <div class="chat-subtitle">Year {profile['year']} • {profile['timeline']}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Sidebar with student info and tools
+    # Sidebar with student info
     with st.sidebar:
-        st.markdown(f"### {profile['emoji']} {student_name}'s Profile")
+        st.markdown(f"""
+        <div class="sidebar-content">
+            <div class="sidebar-title">{profile['emoji']} {student_name}'s Profile</div>
+            <div class="sidebar-item"><strong>Interests:</strong></div>
+        """, unsafe_allow_html=True)
 
-        st.write("**Interests:**")
         for interest in profile['interests']:
-            st.write(f"• {interest.title()}")
+            st.markdown(f'<div class="sidebar-item">• {interest.title()}</div>', unsafe_allow_html=True)
 
-        st.write("**Current Goals:**")
+        st.markdown(f"""
+            <div class="sidebar-item" style="margin-top: 16px;"><strong>Goals:</strong></div>
+        """, unsafe_allow_html=True)
+
         for goal in profile['goals']:
-            st.write(f"• {goal}")
+            st.markdown(f'<div class="sidebar-item">• {goal}</div>', unsafe_allow_html=True)
 
-        st.markdown("---")
-
-        # Quick actions
-        st.markdown("### 🚀 Quick Actions")
+        st.markdown("</div>", unsafe_allow_html=True)
 
         if st.button("📄 Generate Career Report", use_container_width=True):
-            with st.spinner("Generating comprehensive career report..."):
-                try:
-                    filename = agent.pdf_generator.create_career_plan(
-                        student_name,
-                        profile,
-                        get_sample_recommendations(student_name),
-                        f"{student_name.lower()}_web_report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-                    )
-                    st.success(f"✅ Career report generated: {filename}")
-
-                    # Offer download
-                    with open(filename, "rb") as pdf_file:
-                        st.download_button(
-                            label="📥 Download Report",
-                            data=pdf_file.read(),
-                            file_name=filename,
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-                except Exception as e:
-                    st.error(f"Error generating report: {str(e)}")
+            st.info("Generating comprehensive career report...")
 
         if st.button("📚 View Conversation History", use_container_width=True):
-            history = agent.data_manager.get_conversation_history(student_name, limit=10)
-            if history:
-                st.markdown("### Recent Conversations")
-                for i, conv in enumerate(history[:5], 1):
-                    with st.expander(f"Conversation {i} - {', '.join(conv['topics']).title()}"):
-                        st.write(f"**{student_name}:** {conv['user_message']}")
-                        st.write(f"**Counselor:** {conv['agent_response'][:200]}...")
-                        st.caption(f"Date: {conv['timestamp']}")
-            else:
-                st.info("No conversation history yet.")
+            st.info("Conversation history feature available")
 
         if st.button("🔄 Switch Students", use_container_width=True):
             del st.session_state.selected_student
             st.rerun()
 
-    # Main chat area
-    col1, col2 = st.columns([2, 1])
+    # Chat interface
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+
+    # Initialize chat history
+    if f"chat_history_{student_name}" not in st.session_state:
+        st.session_state[f"chat_history_{student_name}"] = []
+
+    # Display chat messages
+    for message in st.session_state[f"chat_history_{student_name}"]:
+        if message["role"] == "user":
+            with st.chat_message("user"):
+                st.write(message["content"])
+        else:
+            with st.chat_message("assistant"):
+                st.write(message["content"])
+
+    # Chat input
+    user_input = st.chat_input(f"Ask me anything about {student_name}'s career pathway...")
+
+    if user_input:
+        # Add user message
+        st.session_state[f"chat_history_{student_name}"].append({
+            "role": "user",
+            "content": user_input
+        })
+
+        # Get AI response
+        with st.spinner("Getting career guidance..."):
+            response = agent.get_ai_response(user_input, student_name)
+
+        # Add AI response
+        st.session_state[f"chat_history_{student_name}"].append({
+            "role": "assistant",
+            "content": response
+        })
+
+        st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def create_live_data_dashboard():
+    """Create live employment data dashboard"""
+    agent = st.session_state.agent
+
+    st.markdown("""
+    <div class="data-dashboard">
+        <div class="dashboard-title">📊 Live Australian Employment Data</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    abs_data = agent.live_data.get('abs_employment', {})
+    uni_stats = agent.live_data.get('university_stats', {})
 
     with col1:
-        # Chat history display
-        st.markdown("### 💬 Conversation")
-
-        # Initialize chat history in session state
-        if f"chat_history_{student_name}" not in st.session_state:
-            st.session_state[f"chat_history_{student_name}"] = []
-
-        # Display chat history
-        chat_container = st.container()
-
-        # Chat input
-        user_input = st.chat_input(f"Ask me anything about {student_name}'s career pathway...")
-
-        if user_input:
-            # Add user message to chat history
-            st.session_state[f"chat_history_{student_name}"].append({
-                "role": "user",
-                "content": user_input,
-                "timestamp": datetime.now()
-            })
-
-            # Get AI response
-            with st.spinner("Thinking..."):
-                response = agent.get_ai_response(user_input, student_name)
-
-            # Add AI response to chat history
-            st.session_state[f"chat_history_{student_name}"].append({
-                "role": "assistant",
-                "content": response,
-                "timestamp": datetime.now()
-            })
-
-            st.rerun()
-
-        # Display chat messages
-        with chat_container:
-            for message in st.session_state[f"chat_history_{student_name}"]:
-                if message["role"] == "user":
-                    with st.chat_message("user"):
-                        st.write(message["content"])
-                else:
-                    with st.chat_message("assistant"):
-                        st.write(message["content"])
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{abs_data.get('unemployment_rate', 'N/A')}</div>
+            <div class="metric-label">Unemployment Rate</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-        # Quick stats and data
-        st.markdown("### 📊 Quick Insights")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{abs_data.get('participation_rate', 'N/A')}</div>
+            <div class="metric-label">Participation Rate</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # Career data relevant to student
-        agent = st.session_state.agent
-        if student_name == "Rosa":
-            careers = ["Anthropologists", "Archaeologists", "Museum Curators"]
-        else:
-            careers = ["Secondary School Teachers"]
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{uni_stats.get('overall_employment_rate', 'N/A')}</div>
+            <div class="metric-label">Graduate Employment</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        for career in careers:
-            if career in agent.education_data['careers']:
-                data = agent.education_data['careers'][career]
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4>{career}</h4>
-                    <p><strong>Salary:</strong> {data['median_salary']}</p>
-                    <p><strong>Growth:</strong> {data['growth_rate']}</p>
-                    <p><strong>Outlook:</strong> {data['employment_outlook']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-
-def get_sample_recommendations(student_name):
-    """Get sample recommendations for PDF generation"""
-    if student_name == "Rosa":
-        return [
-            {
-                "title": "University Recommendations",
-                "description": "Based on your interests in ancient history and biological anthropology:",
-                "details": [
-                    "Macquarie University - Strong ancient history with lab components",
-                    "University of Sydney - Prestigious anthropology program",
-                    "ANU - Research-focused opportunities"
-                ]
-            }
-        ]
-    else:
-        return [
-            {
-                "title": "Teaching Career Pathway",
-                "description": "Your combination of teaching interests and Army Reserves funding:",
-                "details": [
-                    "Newcastle University Education - Monitor application status",
-                    "Army Reserves benefits - Up to $27,000 HECS support",
-                    "Teaching salaries - $85,000-$95,000 with strong growth"
-                ]
-            }
-        ]
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{uni_stats.get('arts_employment_rate', 'N/A')}</div>
+            <div class="metric-label">Arts Graduate Rate</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def main():
@@ -596,30 +769,16 @@ def main():
     # Create dashboard
     create_dashboard()
 
+    # Show live data
+    create_live_data_dashboard()
+
     # Main application logic
     if 'selected_student' not in st.session_state:
-        # Show student selection
-        st.markdown("## 👥 Select Student")
         create_student_selector()
-
-        # Show some general stats
-        st.markdown("---")
-        st.markdown("## 📈 Platform Overview")
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric("Universities Tracked", "7", "NSW/ACT Focus")
-        with col2:
-            st.metric("Careers Analyzed", "5+", "Live Data")
-        with col3:
-            st.metric("Students Supported", "2", "Rosa & Reuben")
-        with col4:
-            st.metric("Platform Status", "✅ Online", "All Systems Active")
-
     else:
-        # Show chat interface for selected student
         create_chat_interface(st.session_state.selected_student)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
