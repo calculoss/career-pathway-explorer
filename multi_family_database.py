@@ -284,6 +284,59 @@ class MultiFamilyDatabase:
             'last_updated': datetime.now().isoformat()
         }
 
+    def create_family(self, family_name: str, email: str = "", location: str = "") -> tuple:
+        """Create a new family and return family_id and access_code"""
+        import random
+        import string
+
+        family_id = str(uuid.uuid4())
+
+        # Generate unique access code (8 characters)
+        access_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Add access_code column if it doesn't exist
+        try:
+            cursor.execute('ALTER TABLE families ADD COLUMN access_code TEXT')
+        except:
+            pass  # Column already exists
+
+        cursor.execute('''
+            INSERT INTO families (id, family_name, email, location, access_code)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (family_id, family_name, email, location, access_code))
+
+        conn.commit()
+        conn.close()
+
+        print(f"✅ Created family: {family_name} (Code: {access_code})")
+        return family_id, access_code
+
+    def verify_family_access(self, access_code: str) -> dict:
+        """Verify access code and return family info"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT id, family_name, email, location
+            FROM families WHERE access_code = ?
+        ''', (access_code,))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            return {
+                'id': result[0],
+                'family_name': result[1],
+                'email': result[2],
+                'location': result[3],
+                'access_code': access_code
+            }
+        return None
+
 
 # Initialize with sample families for testing
 def setup_sample_families():
