@@ -740,7 +740,7 @@ def create_authenticated_family_interface(family_info):
 
 
 def main():
-    """Main application with clean design"""
+    """Main application with clean designs"""
 
     if 'secure_agent' not in st.session_state:
         st.session_state.secure_agent = SecureFamilyCareerAgent()
