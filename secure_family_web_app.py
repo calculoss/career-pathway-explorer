@@ -7,6 +7,7 @@ import os
 import json
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
+from canvas_integration import add_canvas_to_family_interface
 
 # Page configuration
 st.set_page_config(
@@ -684,10 +685,10 @@ def create_authenticated_family_interface(family_info):
             st.session_state.selected_student = student
             st.rerun()
 
+    add_canvas_to_family_interface()
     # Chat interface
     if 'selected_student' in st.session_state:
         student = st.session_state.selected_student
-
         st.markdown("""
         <div class="chat-container">
             <div class="chat-header">
