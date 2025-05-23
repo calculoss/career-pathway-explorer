@@ -597,14 +597,14 @@ def create_student_selector():
 
     st.markdown("""
     <div class="student-selection">
-        <div class="student-card rosa" onclick="selectRosa()">
+        <div class="student-card rosa">
             <div class="student-name">🏛️ Rosa</div>
             <div class="student-year">Year 11 • Age 16</div>
             <div class="student-interests"><strong>Interests:</strong> Ancient History, Biological Anthropology, Writing</div>
             <div class="student-timeline"><strong>Timeline:</strong> Applying in 12 months</div>
         </div>
 
-        <div class="student-card reuben" onclick="selectReuben()">
+        <div class="student-card reuben">
             <div class="student-name">👨‍🏫 Reuben</div>
             <div class="student-year">Year 12 • Nearly 18</div>
             <div class="student-interests"><strong>Interests:</strong> Modern History, Chinese Studies, Teaching</div>
