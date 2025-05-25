@@ -8,6 +8,10 @@ import os
 import json
 import requests
 import uuid
+import sqlite3
+import requests
+import json
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
 
@@ -978,8 +982,8 @@ def create_comprehensive_family_interface(family_info):
     with tab1:
         create_career_guidance_tab(selected_student, family_info)
 
-    with tab2:
-        create_canvas_integration_tab(selected_student)
+    with tab2:  # Canvas & Study Planning tab
+        show_simple_canvas_integration(selected_student)
 
     with tab3:
         create_progress_tab(selected_student)
@@ -1142,6 +1146,489 @@ def create_settings_tab(student, family_info):
     with col2:
         st.checkbox("Career guidance suggestions", value=False)
         st.checkbox("Weekly progress summaries", value=True)
+
+
+class SimpleCanvasIntegrator:
+    """Simple Canvas integration for the family app"""
+
+    def __init__(self, db_path="community_career_explorer.db"):
+        self.db_path = db_path
+        self.init_canvas_tables()
+
+    def init_canvas_tables(self):
+        """Initialize Canvas tables if they don't exist"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Canvas credentials table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                canvas_url TEXT,
+                access_token TEXT,
+                student_name TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                last_sync DATETIME,
+                UNIQUE(student_id)
+            )
+        ''')
+
+        # Canvas assignments table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                course_name TEXT,
+                assignment_name TEXT,
+                due_date DATETIME,
+                points_possible REAL,
+                description TEXT,
+                html_url TEXT,
+                is_quiz BOOLEAN DEFAULT FALSE,
+                UNIQUE(student_id, assignment_id)
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+
+    def test_canvas_connection(self, canvas_url: str, access_token: str):
+        """Test Canvas API connection"""
+        try:
+            response = requests.get(
+                f"{canvas_url.rstrip('/')}/api/v1/users/self",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                user_data = response.json()
+                return {
+                    'success': True,
+                    'user_name': user_data.get('name', 'Unknown'),
+                    'message': f"Connected as {user_data.get('name', 'Unknown')}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f'HTTP {response.status_code}: Authentication failed'
+                }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Connection failed: {str(e)}'
+            }
+
+    def save_canvas_credentials(self, student_id: str, canvas_url: str, access_token: str, user_name: str):
+        """Save Canvas credentials for a student"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                INSERT OR REPLACE INTO canvas_credentials 
+                (student_id, canvas_url, access_token, student_name, last_sync)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (student_id, canvas_url, access_token, user_name, datetime.now().isoformat()))
+
+            conn.commit()
+            conn.close()
+            return True
+
+        except Exception as e:
+            return False
+
+    def sync_assignments(self, student_id: str):
+        """Sync assignments from Canvas"""
+        try:
+            # Get credentials
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT canvas_url, access_token FROM canvas_credentials 
+                WHERE student_id = ? AND is_active = TRUE
+            ''', (student_id,))
+
+            result = cursor.fetchone()
+            if not result:
+                return {'success': False, 'message': 'No Canvas credentials found'}
+
+            canvas_url, access_token = result
+
+            # Get courses
+            courses_response = requests.get(
+                f"{canvas_url}/api/v1/courses",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"enrollment_state": "active", "per_page": 20},
+                timeout=15
+            )
+
+            if courses_response.status_code != 200:
+                return {'success': False, 'message': 'Failed to fetch courses'}
+
+            courses = courses_response.json()
+            total_assignments = 0
+
+            # Clear existing assignments
+            cursor.execute('DELETE FROM canvas_assignments WHERE student_id = ?', (student_id,))
+
+            # Sync assignments from each course
+            for course in courses[:10]:  # Limit to 10 courses
+                course_id = course['id']
+                course_name = course.get('name', 'Unknown Course')
+
+                # Get assignments
+                assignments_response = requests.get(
+                    f"{canvas_url}/api/v1/courses/{course_id}/assignments",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={"per_page": 50},
+                    timeout=15
+                )
+
+                if assignments_response.status_code == 200:
+                    assignments = assignments_response.json()
+
+                    for assignment in assignments:
+                        due_date = assignment.get('due_at')
+                        if due_date:
+                            try:
+                                # Parse Canvas date
+                                due_datetime = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                                due_datetime = due_datetime.replace(tzinfo=None)  # Remove timezone
+
+                                cursor.execute('''
+                                    INSERT OR REPLACE INTO canvas_assignments
+                                    (student_id, assignment_id, course_name, assignment_name, 
+                                     due_date, points_possible, description, html_url, is_quiz)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ''', (
+                                    student_id,
+                                    str(assignment['id']),
+                                    course_name,
+                                    assignment.get('name', 'Untitled Assignment'),
+                                    due_datetime.isoformat(),
+                                    assignment.get('points_possible', 0),
+                                    assignment.get('description', '')[:500],
+                                    assignment.get('html_url', ''),
+                                    False
+                                ))
+
+                                total_assignments += 1
+
+                            except Exception:
+                                continue
+
+                # Get quizzes
+                quizzes_response = requests.get(
+                    f"{canvas_url}/api/v1/courses/{course_id}/quizzes",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={"per_page": 50},
+                    timeout=15
+                )
+
+                if quizzes_response.status_code == 200:
+                    quizzes = quizzes_response.json()
+
+                    for quiz in quizzes:
+                        due_date = quiz.get('due_at')
+                        if due_date:
+                            try:
+                                due_datetime = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                                due_datetime = due_datetime.replace(tzinfo=None)
+
+                                cursor.execute('''
+                                    INSERT OR REPLACE INTO canvas_assignments
+                                    (student_id, assignment_id, course_name, assignment_name, 
+                                     due_date, points_possible, description, html_url, is_quiz)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ''', (
+                                    student_id,
+                                    f"quiz_{quiz['id']}",
+                                    course_name,
+                                    quiz.get('title', 'Untitled Quiz'),
+                                    due_datetime.isoformat(),
+                                    quiz.get('points_possible', 0),
+                                    quiz.get('description', '')[:500],
+                                    quiz.get('html_url', ''),
+                                    True
+                                ))
+
+                                total_assignments += 1
+
+                            except Exception:
+                                continue
+
+            # Update last sync time
+            cursor.execute('''
+                UPDATE canvas_credentials 
+                SET last_sync = ? 
+                WHERE student_id = ?
+            ''', (datetime.now().isoformat(), student_id))
+
+            conn.commit()
+            conn.close()
+
+            return {
+                'success': True,
+                'message': f'Successfully synced {total_assignments} assignments and quizzes',
+                'count': total_assignments
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Sync failed: {str(e)}'
+            }
+
+    def get_student_assignments(self, student_id: str):
+        """Get assignments for a student"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT assignment_id, course_name, assignment_name, due_date, 
+                       points_possible, description, html_url, is_quiz
+                FROM canvas_assignments 
+                WHERE student_id = ?
+                ORDER BY due_date ASC
+            ''', (student_id,))
+
+            assignments = []
+            for row in cursor.fetchall():
+                assignments.append({
+                    'assignment_id': row[0],
+                    'course': row[1],
+                    'name': row[2],
+                    'due_date': row[3],
+                    'points': row[4],
+                    'description': row[5] or '',
+                    'html_url': row[6] or '',
+                    'type': 'Quiz' if row[7] else 'Assignment'
+                })
+
+            conn.close()
+            return assignments
+
+        except Exception as e:
+            return []
+
+    def has_canvas_credentials(self, student_id: str):
+        """Check if student has Canvas credentials"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT COUNT(*) FROM canvas_credentials 
+                WHERE student_id = ? AND is_active = TRUE
+            ''', (student_id,))
+
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count > 0
+
+        except Exception:
+            return False
+
+
+# ADD THESE FUNCTIONS TO YOUR EXISTING APP:
+
+def show_simple_canvas_integration(student):
+    """Simple Canvas integration interface"""
+
+    # Initialize Canvas integrator
+    if 'simple_canvas' not in st.session_state:
+        st.session_state.simple_canvas = SimpleCanvasIntegrator()
+
+    canvas = st.session_state.simple_canvas
+
+    st.markdown("### 🎓 Canvas LMS Integration")
+
+    # Check if already connected
+    if canvas.has_canvas_credentials(student['id']):
+        show_canvas_dashboard(student, canvas)
+    else:
+        show_canvas_setup(student, canvas)
+
+
+def show_canvas_setup(student, canvas):
+    """Canvas setup form"""
+    st.markdown(f"""
+    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
+        <h4>🔗 Connect {student['name']}'s Canvas Account</h4>
+        <p>Automatically sync assignments and due dates from Canvas.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Instructions
+    with st.expander("📋 How to get your Canvas access token", expanded=False):
+        st.markdown("""
+        **Step-by-step instructions:**
+
+        1. **Log into Canvas** (your school's Canvas site)
+        2. **Click your profile picture** → **Settings**
+        3. **Scroll to "Approved Integrations"**
+        4. **Click "+ New Access Token"**
+        5. **Purpose:** Enter "Family Career App"
+        6. **Click "Generate Token"**
+        7. **Copy the token** and paste below
+
+        ⚠️ **Keep your token private** - don't share it with anyone!
+        """)
+
+    # Connection form
+    with st.form(f"canvas_setup_{student['id']}"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            canvas_url = st.text_input(
+                "Canvas URL",
+                placeholder="https://your-school.instructure.com",
+                help="Your school's Canvas website"
+            )
+
+        with col2:
+            access_token = st.text_input(
+                "Access Token",
+                type="password",
+                help="Token from Canvas → Settings → Approved Integrations"
+            )
+
+        submitted = st.form_submit_button("🔗 Connect Canvas", use_container_width=True)
+
+        if submitted and canvas_url and access_token:
+            with st.spinner("Testing Canvas connection..."):
+                # Test connection
+                test_result = canvas.test_canvas_connection(canvas_url, access_token)
+
+                if test_result['success']:
+                    # Save credentials
+                    success = canvas.save_canvas_credentials(
+                        student['id'], canvas_url, access_token, test_result['user_name']
+                    )
+
+                    if success:
+                        st.success(f"✅ **Canvas Connected Successfully!**\n\n{test_result['message']}")
+
+                        # Initial sync
+                        with st.spinner("Syncing assignments..."):
+                            sync_result = canvas.sync_assignments(student['id'])
+
+                        if sync_result['success']:
+                            st.success(f"🎉 {sync_result['message']}")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.warning(f"Canvas connected but sync had issues: {sync_result['message']}")
+                    else:
+                        st.error("Failed to save Canvas credentials")
+                else:
+                    st.error(f"❌ **Connection Failed:** {test_result['message']}")
+
+
+def show_canvas_dashboard(student, canvas):
+    """Canvas dashboard for connected student"""
+
+    # Dashboard header
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown(f"""
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+            <h4>📚 Canvas Connected</h4>
+            <p><strong>{student['name']}</strong> • Canvas integration active</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        if st.button("🔄 Sync Now", use_container_width=True):
+            with st.spinner("Syncing Canvas data..."):
+                sync_result = canvas.sync_assignments(student['id'])
+
+                if sync_result['success']:
+                    st.success(sync_result['message'])
+                    st.rerun()
+                else:
+                    st.error(f"Sync failed: {sync_result['message']}")
+
+    # Show assignments
+    show_assignments_table(student, canvas)
+
+
+def show_assignments_table(student, canvas):
+    """Show assignments in a clean table"""
+    st.markdown("#### 📝 Your Canvas Assignments")
+
+    # Get assignments
+    assignments = canvas.get_student_assignments(student['id'])
+
+    if not assignments:
+        st.info("No assignments found. Try syncing again or check if assignments have due dates in Canvas.")
+        return
+
+    # Create assignments display
+    for i, assignment in enumerate(assignments):
+        # Calculate urgency
+        try:
+            due_date = datetime.fromisoformat(assignment['due_date'])
+            days_until_due = (due_date - datetime.now()).days
+
+            if days_until_due < 0:
+                urgency = "🔴 Overdue"
+                urgency_class = "overdue"
+            elif days_until_due <= 2:
+                urgency = "🔴 Due Soon"
+                urgency_class = "due-soon"
+            elif days_until_due <= 7:
+                urgency = "🟡 This Week"
+                urgency_class = "due-week"
+            else:
+                urgency = "🟢 Future"
+                urgency_class = "future"
+
+            due_text = due_date.strftime('%d %b %Y')
+
+        except:
+            urgency = "⚪ No Date"
+            urgency_class = "no-date"
+            due_text = "No date"
+
+        # Assignment card
+        with st.container():
+            col1, col2 = st.columns([4, 1])
+
+            with col1:
+                # Canvas link
+                canvas_link = ""
+                if assignment.get('html_url'):
+                    canvas_link = f'<a href="{assignment["html_url"]}" target="_blank" style="color: #1c4980; text-decoration: none;">🔗</a> '
+
+                st.markdown(f"""
+                <div style="border-left: 4px solid {'#dc2626' if 'overdue' in urgency_class or 'soon' in urgency_class else '#16a34a'}; 
+                           padding: 12px; margin: 8px 0; background: #f9fafb; border-radius: 4px;">
+                    <div style="font-weight: 600; font-size: 16px;">
+                        {canvas_link}{assignment['name']} 
+                        <span style="font-size: 12px; font-weight: normal; color: #6b7280;">({assignment['type']})</span>
+                    </div>
+                    <div style="color: #6b7280; margin: 4px 0;">
+                        📚 {assignment['course']} • 📅 Due: {due_text} • 🎯 {assignment['points']} points
+                    </div>
+                    <div style="font-size: 12px; color: #374151; margin-top: 4px;">
+                        {urgency}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                if st.button("🤖 Study Plan", key=f"plan_{i}", use_container_width=True):
+                    st.info("AI Study Planning feature coming soon!")
+
+    st.markdown(f"**Total:** {len(assignments)} assignments found")
 
 
 def main():
