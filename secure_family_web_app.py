@@ -7,6 +7,7 @@ import os
 import json
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
+from canvas_integration import CanvasIntegrator, SimpleMilestoneGenerator, show_canvas_setup
 
 # Page configuration
 st.set_page_config(
@@ -1061,7 +1062,7 @@ def create_authenticated_family_interface(family_info):
         show_students_and_career_tab(students, family_info, db)
 
     with tab2:
-        show_canvas_integration_tab(students)
+        show_full_canvas_integration_tab(students)  # Changed from show_canvas_integration_tab
 
     with tab3:
         show_progress_and_reports_tab(students, family_info)
@@ -1226,137 +1227,24 @@ def show_family_settings_tab(family_info, students):
             st.info("Support: support@careerpath.edu.au")
 
 
-def show_canvas_integration_tab(students):
-    """Show Canvas LMS integration for study materials"""
+def show_full_canvas_integration_tab(students):
+    """Show FULL Canvas LMS integration with complete functionality"""
     st.markdown('<div class="section-title">📚 Canvas LMS Integration</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Connect your students\' Canvas accounts to sync assignments and study materials</div>',
+        '<div class="section-subtitle">Connect your students\' Canvas accounts to sync assignments, exams, and generate AI study plans</div>',
         unsafe_allow_html=True)
+
+    # Initialize Canvas integrator in session state
+    if 'canvas_integrator' not in st.session_state:
+        st.session_state.canvas_integrator = CanvasIntegrator()
+
+    canvas_integrator = st.session_state.canvas_integrator
 
     for student in students:
         st.markdown(f"### 📚 {student['name']} - Canvas Integration")
 
-        # Canvas connection status - use different key for storage
-        canvas_connected = st.session_state.get(f"canvas_connected_{student['id']}", False)
-
-        if not canvas_connected:
-            st.markdown("""
-            <div class="canvas-status">
-                <div class="canvas-title">Connect Canvas Account</div>
-                <div class="canvas-subtitle">Link your Canvas LMS to automatically sync assignments and study materials</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                canvas_url = st.text_input(f"Canvas URL", placeholder="https://yourschool.instructure.com",
-                                           key=f"input_canvas_url_{student['id']}")
-            with col2:
-                canvas_token = st.text_input(f"Access Token", placeholder="Your Canvas API token", type="password",
-                                             key=f"input_canvas_token_{student['id']}")
-
-            if st.button(f"Connect Canvas for {student['name']}", key=f"connect_{student['id']}"):
-                if canvas_url and canvas_token:
-                    # Store with different keys to avoid conflicts
-                    st.session_state[f"canvas_connected_{student['id']}"] = True
-                    st.session_state[f"stored_canvas_url_{student['id']}"] = canvas_url  # Different key
-                    st.session_state[f"stored_canvas_token_{student['id']}"] = canvas_token  # Different key
-                    st.success(f"✅ Canvas connected for {student['name']}!")
-                    st.rerun()
-                else:
-                    st.error("Please provide both Canvas URL and access token")
-
-        else:
-            # Show connected Canvas features
-            stored_url = st.session_state.get(f"stored_canvas_url_{student['id']}", "Unknown")
-            st.markdown(f"""
-            <div class="canvas-status canvas-connected">
-                <div class="canvas-title">✅ Canvas Connected</div>
-                <div class="canvas-subtitle">Connected to: {stored_url}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Tabs for Canvas features
-            canvas_tab1, canvas_tab2, canvas_tab3 = st.tabs(["📋 Assignments", "📚 Study Materials", "📊 Progress"])
-
-            with canvas_tab1:
-                st.markdown("#### Upcoming Assignments")
-
-                # Sample assignments data
-                assignments = [
-                    {"name": "Ancient History Essay", "due": "2025-06-15", "course": "Ancient History",
-                     "status": "In Progress"},
-                    {"name": "Biology Lab Report", "due": "2025-06-18", "course": "Biology", "status": "Not Started"},
-                    {"name": "English Creative Writing", "due": "2025-06-22", "course": "English",
-                     "status": "Submitted"}
-                ]
-
-                for assignment in assignments:
-                    status_color = {"In Progress": "🟡", "Not Started": "🔴", "Submitted": "✅"}
-                    st.markdown(f"""
-                    <div class="milestone-card">
-                        <div class="milestone-title">{status_color[assignment['status']]} {assignment['name']}</div>
-                        <div class="milestone-description">Course: {assignment['course']}</div>
-                        <div class="milestone-date">Due: {assignment['due']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with canvas_tab2:
-                st.markdown("#### Study Materials & Resources")
-
-                # Sample study materials
-                materials = [
-                    {"title": "Ancient Civilizations Study Guide", "type": "PDF", "course": "Ancient History"},
-                    {"title": "Cell Biology Video Lectures", "type": "Video", "course": "Biology"},
-                    {"title": "Essay Writing Techniques", "type": "Document", "course": "English"}
-                ]
-
-                for material in materials:
-                    type_icon = {"PDF": "📄", "Video": "🎥", "Document": "📝"}
-                    st.markdown(f"""
-                    <div class="milestone-card">
-                        <div class="milestone-title">{type_icon[material['type']]} {material['title']}</div>
-                        <div class="milestone-description">Course: {material['course']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with canvas_tab3:
-                st.markdown("#### Academic Progress")
-
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.markdown("""
-                    <div class="metric-card">
-                        <div class="metric-value">85%</div>
-                        <div class="metric-label">Overall Grade</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col2:
-                    st.markdown("""
-                    <div class="metric-card">
-                        <div class="metric-value">3</div>
-                        <div class="metric-label">Assignments Due</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col3:
-                    st.markdown("""
-                    <div class="metric-card">
-                        <div class="metric-value">92%</div>
-                        <div class="metric-label">Attendance</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            # Disconnect option
-            if st.button(f"Disconnect Canvas for {student['name']}", key=f"disconnect_{student['id']}"):
-                # Clear all stored data
-                st.session_state[f"canvas_connected_{student['id']}"] = False
-                if f"stored_canvas_url_{student['id']}" in st.session_state:
-                    del st.session_state[f"stored_canvas_url_{student['id']}"]
-                if f"stored_canvas_token_{student['id']}" in st.session_state:
-                    del st.session_state[f"stored_canvas_token_{student['id']}"]
-                st.rerun()
+        # Use the full Canvas setup from canvas_integration.py
+        show_canvas_setup(student, canvas_integrator)
 
         if len(students) > 1:
             st.markdown("---")
