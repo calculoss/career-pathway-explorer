@@ -20,181 +20,119 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-
-# Complete Khan Academy-inspired CSS
+# COMPLETE CSS WITH NUCLEAR SPACING FIX
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&display=swap');
 
-    /* =================== GLOBAL STYLES =================== */
-    .stApp {
-        background-color: #ffffff;
-        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        color: #21242c;
+    /* =================== NUCLEAR STREAMLIT OVERRIDE =================== */
+
+    /* Kill ALL Streamlit default spacing with extreme prejudice */
+    .main .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        max-width: none !important;
     }
 
-    /* Remove Streamlit elements AND spacing */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
-    header[data-testid="stHeader"] {
-        background: rgba(0,0,0,0);
-        height: 0rem;
-    }
-
-    /* CRITICAL: Remove all Streamlit default spacing */
     .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
         max-width: none !important;
     }
 
-    .main .block-container {
-        padding-top: 0rem !important;
+    /* Remove ALL element containers margins */
+    .element-container {
+        margin: 0rem !important;
+        padding: 0rem !important;
     }
 
+    /* Remove ALL markdown margins */
+    .stMarkdown {
+        margin-bottom: 0rem !important;
+        margin-top: 0rem !important;
+        padding: 0rem !important;
+    }
+
+    /* Remove ALL vertical block gaps */
     div[data-testid="stVerticalBlock"] {
         gap: 0rem !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
     }
 
     div[data-testid="stVerticalBlock"] > div {
         margin-bottom: 0rem !important;
+        margin-top: 0rem !important;
+        padding: 0rem !important;
     }
 
-    /* =================== MAIN LAYOUT =================== */
-    .main-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e7e8ea;
-        padding: 16px 0;
-        margin: 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    div[data-testid="stVerticalBlock"] > div:first-child {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
     }
 
-    .header-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 24px;
+    /* Kill the app container spacing */
+    .stApp > div:first-child {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
     }
 
+    /* Remove header spacing completely */
+    header[data-testid="stHeader"] {
+        background: rgba(0,0,0,0) !important;
+        height: 0rem !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
+    }
+
+    /* Remove toolbar */
+    .stToolbar {
+        display: none !important;
+    }
+
+    /* Remove main menu */
+    #MainMenu {
+        visibility: hidden !important;
+        height: 0rem !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
+    }
+
+    /* Remove footer */
+    footer {
+        visibility: hidden !important;
+        height: 0rem !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
+    }
+
+    /* Remove deploy button */
+    .stDeployButton {
+        display: none !important;
+    }
+
+    /* =================== GLOBAL STYLES =================== */
+    .stApp {
+        background-color: #ffffff !important;
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        color: #21242c !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* =================== CUSTOM LAYOUT =================== */
     .main-content {
         max-width: 1200px;
         margin: 0 auto;
         padding: 24px;
         background: #ffffff;
-    }
-
-    /* =================== GLOBAL STYLES =================== */
-    .stApp {
-        background-color: #ffffff;
-        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        color: #21242c;
-    }
-
-    /* Remove Streamlit elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
-    header[data-testid="stHeader"] {
-        background: rgba(0,0,0,0);
-        height: 0rem;
-    }
-
-    /* Fix Streamlit spacing issues */
-    .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    .element-container {
-        margin: 0 !important;
-    }
-
-    .stMarkdown {
-        margin-bottom: 0 !important;
-    }
-
-    div[data-testid="stVerticalBlock"] > div:first-child {
-        margin-top: 0 !important;
-    }
-
-    /* =================== MAIN LAYOUT =================== */
-    .main-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e7e8ea;
-        padding: 16px 0;
-        margin-bottom: 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .header-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 24px;
-    }
-
-    .logo-section {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .app-logo {
-        width: 40px;
-        height: 40px;
-        background: #00a60e;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 20px;
-        font-weight: 700;
-    }
-
-    .app-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #21242c;
-        margin: 0;
-    }
-
-    .app-subtitle {
-        font-size: 14px;
-        color: #626569;
-        margin: 0;
-        margin-top: 2px;
-    }
-
-    .main-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 32px 24px;
-        background: #ffffff;
-        min-height: calc(100vh - 120px);
-    }
-
-    /* Fix gap between header and content */
-    .block-container {
-        padding-top: 0 !important;
-        margin-top: 0 !important;
-    }
-
-    .element-container {
-        margin: 0 !important;
-    }
-
-    /* Override Streamlit's default spacing */
-    .stApp > div:first-child {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
+        min-height: calc(100vh - 0px); /* No header height to account for */
     }
 
     /* =================== TYPOGRAPHY =================== */
@@ -204,6 +142,8 @@ st.markdown("""
         color: #21242c;
         margin-bottom: 8px;
         line-height: 1.2;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
     }
 
     .page-subtitle {
@@ -211,6 +151,8 @@ st.markdown("""
         color: #626569;
         margin-bottom: 32px;
         line-height: 1.4;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
     }
 
     .section-title {
@@ -235,6 +177,7 @@ st.markdown("""
         border-bottom: 2px solid #e7e8ea;
         margin-bottom: 32px;
         padding: 0;
+        margin-top: 0 !important;
     }
 
     .stTabs [data-baseweb="tab"] {
@@ -270,6 +213,7 @@ st.markdown("""
         border-radius: 12px;
         padding: 32px;
         margin-bottom: 32px;
+        margin-top: 0 !important;
         box-shadow: 0 4px 16px rgba(0, 166, 14, 0.2);
     }
 
@@ -329,34 +273,6 @@ st.markdown("""
         font-size: 14px;
         color: #626569;
         line-height: 1.6;
-        margin: 0;
-    }
-
-    /* =================== CANVAS INTEGRATION =================== */
-    .canvas-status {
-        background: #ffffff;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 24px;
-        transition: all 0.2s ease;
-    }
-
-    .canvas-connected {
-        border-color: #00a60e;
-        background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e8 100%);
-    }
-
-    .canvas-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #21242c;
-        margin: 0 0 4px 0;
-    }
-
-    .canvas-subtitle {
-        font-size: 14px;
-        color: #626569;
         margin: 0;
     }
 
@@ -533,43 +449,6 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* =================== MILESTONE CARDS =================== */
-    .milestone-card {
-        border-left: 4px solid #00a60e;
-        padding: 20px;
-        margin: 16px 0;
-        background: #ffffff;
-        border-radius: 8px;
-        border: 1px solid #e7e8ea;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .milestone-card:hover {
-        border-color: #c4c6ca;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-1px);
-    }
-
-    .milestone-title {
-        font-weight: 600;
-        font-size: 16px;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    .milestone-description {
-        color: #626569;
-        margin: 6px 0;
-        line-height: 1.6;
-    }
-
-    .milestone-date {
-        font-size: 14px;
-        font-weight: 500;
-        color: #00a60e;
-    }
-
     /* =================== SECURITY FEATURES =================== */
     .security-features {
         display: grid;
@@ -691,28 +570,47 @@ st.markdown("""
         font-weight: 500;
     }
 
-    /* =================== PROGRESS BARS =================== */
-    .stProgress .stProgress-bar {
-        background: linear-gradient(90deg, #00a60e 0%, #008a0c 100%);
+    /* =================== MILESTONE CARDS =================== */
+    .milestone-card {
+        border-left: 4px solid #00a60e;
+        padding: 20px;
+        margin: 16px 0;
+        background: #ffffff;
         border-radius: 8px;
-        height: 12px;
+        border: 1px solid #e7e8ea;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .milestone-card:hover {
+        border-color: #c4c6ca;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+
+    .milestone-title {
+        font-weight: 600;
+        font-size: 16px;
+        color: #21242c;
+        margin-bottom: 8px;
+    }
+
+    .milestone-description {
+        color: #626569;
+        margin: 6px 0;
+        line-height: 1.6;
+    }
+
+    .milestone-date {
+        font-size: 14px;
+        font-weight: 500;
+        color: #00a60e;
     }
 
     /* =================== RESPONSIVE DESIGN =================== */
     @media (max-width: 768px) {
-        .header-container,
         .main-content {
             padding: 16px;
-        }
-
-        .header-container {
-            flex-direction: column;
-            gap: 16px;
-            text-align: center;
-        }
-
-        .app-title {
-            font-size: 20px;
         }
 
         .page-title {
@@ -742,45 +640,8 @@ st.markdown("""
             padding: 24px;
         }
     }
-
-    /* =================== SIDEBAR ENHANCEMENTS =================== */
-    .stSidebar {
-        background: #f7f8fa;
-        border-right: 2px solid #e7e8ea;
-    }
-
-    .stSidebar .stSelectbox > div > div > select,
-    .stSidebar .stTextInput > div > div > input {
-        background: #ffffff;
-        border: 2px solid #e7e8ea;
-    }
-
-    /* =================== LOADING STATES =================== */
-    .stSpinner > div {
-        border-top-color: #00a60e;
-    }
-
-    /* =================== CLEAN TABLES =================== */
-    .stDataFrame {
-        border: 2px solid #e7e8ea;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .stDataFrame thead th {
-        background-color: #f7f8fa;
-        color: #21242c;
-        font-weight: 600;
-        border-bottom: 2px solid #e7e8ea;
-    }
-
-    .stDataFrame tbody td {
-        border-bottom: 1px solid #e7e8ea;
-    }
 </style>
 """, unsafe_allow_html=True)
-
 
 class SecureFamilyCareerAgent:
     def __init__(self):
