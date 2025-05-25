@@ -1138,7 +1138,7 @@ def show_platform_stats():
 
 
 def create_family_registration():
-    """Enhanced family registration with email verification"""
+    """Enhanced family registration - simplified integration"""
     create_header()
 
     st.markdown('<div class="main-content">', unsafe_allow_html=True)
@@ -1162,220 +1162,8 @@ def create_family_registration():
 
     st.markdown('<div class="form-container">', unsafe_allow_html=True)
 
-    # Registration method selection
-    registration_method = st.radio(
-        "Choose Registration Method",
-        ["📧 Email & Password (Recommended)", "🔑 Access Code Only (Legacy)"],
-        help="Email registration provides better security and password recovery options"
-    )
-
-    if registration_method.startswith("📧"):
-        # Enhanced email registration
-        with st.form("enhanced_family_registration"):
-            st.markdown('<div class="section-title">👨‍👩‍👧‍👦 Family Information</div>', unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family")
-                email = st.text_input("Email Address *", placeholder="your.email@example.com")
-
-            with col2:
-                password = st.text_input("Password *", type="password",
-                                         help="Minimum 8 characters, include letters and numbers")
-                confirm_password = st.text_input("Confirm Password *", type="password")
-                location = st.text_input("Location", placeholder="e.g., Sydney, NSW")
-
-            st.markdown('<div class="section-title">🎓 First Student</div>', unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                student_name = st.text_input("Student Name *", placeholder="e.g., Emma")
-                age = st.number_input("Age", min_value=14, max_value=20, value=16)
-                year_level = st.selectbox("Year Level", [9, 10, 11, 12], index=2)
-
-            with col2:
-                interests = st.text_area("Interests", placeholder="e.g., psychology, science, helping others")
-                timeline = st.selectbox("University Timeline",
-                                        ["Applying in 2+ years", "Applying in 12 months",
-                                         "Applying in 6 months", "Applying now"])
-                location_preference = st.text_input("Study Location Preference", placeholder="e.g., NSW/ACT")
-
-            # Additional student fields
-            st.markdown('<div class="section-title">📋 Additional Details (Optional)</div>', unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                career_considerations = st.text_area("Career Considerations",
-                                                     placeholder="e.g., work-life balance, salary expectations, travel opportunities")
-            with col2:
-                goals = st.text_area("Goals",
-                                     placeholder="e.g., find course with practical components, explore internship opportunities")
-
-            # Terms and newsletter
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-
-            with col1:
-                terms_accepted = st.checkbox("I agree to the Terms of Service and Privacy Policy *")
-                newsletter = st.checkbox("Send me updates about new features and career insights")
-
-            with col2:
-                # Show password requirements
-                st.markdown("""
-                **Password Requirements:**
-                - At least 8 characters
-                - Include letters and numbers
-                - Avoid common passwords
-                """)
-
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                submitted = st.form_submit_button("Create Family Account", use_container_width=True)
-
-            if submitted:
-                # Enhanced validation
-                errors = []
-
-                if not all([family_name, email, password, confirm_password, student_name]):
-                    errors.append("❌ Please fill in all required fields.")
-
-                if password != confirm_password:
-                    errors.append("❌ Passwords do not match.")
-
-                if len(password) < 8:
-                    errors.append("❌ Password must be at least 8 characters long.")
-
-                if not any(c.isdigit() for c in password):
-                    errors.append("❌ Password must include at least one number.")
-
-                if not any(c.isalpha() for c in password):
-                    errors.append("❌ Password must include at least one letter.")
-
-                if '@' not in email or '.' not in email:
-                    errors.append("❌ Please enter a valid email address.")
-
-                if not terms_accepted:
-                    errors.append("❌ Please accept the Terms of Service.")
-
-                # Check if email already exists
-                if not errors:
-                    try:
-                        conn = sqlite3.connect("community_career_explorer.db")
-                        cursor = conn.cursor()
-                        cursor.execute('SELECT id FROM families WHERE email = ?', (email,))
-                        if cursor.fetchone():
-                            errors.append("❌ An account with this email already exists. Try logging in instead.")
-                        conn.close()
-                    except Exception as e:
-                        errors.append("❌ Database error. Please try again.")
-
-                if errors:
-                    for error in errors:
-                        st.error(error)
-                else:
-                    # Create enhanced account
-                    try:
-                        auth_system = st.session_state.enhanced_auth
-                        result = auth_system.register_family_with_password(
-                            family_name, email, password, location
-                        )
-
-                        if result['status'] == 'success':
-                            family_id = result['family_id']
-                            access_code = result['access_code']
-
-                            # Add the first student
-                            db = st.session_state.secure_db
-                            student_data = {
-                                'name': student_name,
-                                'age': age,
-                                'year_level': year_level,
-                                'interests': [i.strip() for i in interests.split(',') if i.strip()],
-                                'preferences': [],
-                                'timeline': timeline,
-                                'location_preference': location_preference,
-                                'career_considerations': [c.strip() for c in career_considerations.split(',') if
-                                                          c.strip()] if career_considerations else [],
-                                'goals': [g.strip() for g in goals.split(',') if g.strip()] if goals else []
-                            }
-
-                            db.add_student(family_id, student_data)
-
-                            # Success message with both email and access code
-                            st.success("🎉 Family account created successfully!")
-
-                            st.markdown(f"""
-                            <div class="access-code-container">
-                                <div class="access-code-label">Your Family Access Details</div>
-                                <div style="background: white; padding: 1rem; border-radius: 5px; margin: 1rem 0;">
-                                    <strong>Email:</strong> {email}<br>
-                                    <strong>Backup Access Code:</strong> <span class="access-code" style="font-size: 24px;">{access_code}</span>
-                                </div>
-                                <div class="access-code-note">
-                                    📧 <strong>Check your email</strong> for a verification link<br>
-                                    🔑 <strong>Save your access code</strong> as a backup login method<br>
-                                    🛡️ <strong>Keep these details secure</strong> - they're your keys to the platform
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                            # Auto-login option
-                            col1, col2, col3 = st.columns([1, 2, 1])
-                            with col2:
-                                if st.button("Continue to Dashboard", use_container_width=True, type="primary"):
-                                    # Auto-authenticate the newly created family
-                                    session_id = auth_system.create_session(family_id)
-                                    st.session_state.family_session = session_id
-                                    st.session_state.authenticated_family = {
-                                        'id': family_id,
-                                        'family_name': family_name,
-                                        'email': email,
-                                        'location': location,
-                                        'access_code': access_code
-                                    }
-
-                                    if 'show_registration' in st.session_state:
-                                        del st.session_state.show_registration
-
-                                    st.rerun()
-                        else:
-                            st.error("Registration failed. Please try again.")
-
-                    except Exception as e:
-                        st.error(f"An error occurred during registration: {str(e)}")
-
-    else:
-        # Legacy access code only registration
-        st.info("🔑 Legacy registration method - you'll only get an access code (no password recovery)")
-
-        with st.form("legacy_registration"):
-            col1, col2 = st.columns(2)
-
-            with col1:
-                family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family")
-                email = st.text_input("Email Address (Optional)", placeholder="your.email@example.com")
-
-            with col2:
-                location = st.text_input("Location", placeholder="e.g., Sydney, NSW")
-
-            st.markdown("### First Student")
-            # ... (same student fields as above)
-
-            submitted = st.form_submit_button("Create Account (Access Code Only)")
-
-            if submitted and family_name:
-                # Use original database method
-                db = st.session_state.secure_db
-                family_id, access_code = db.create_family(family_name, email, location)
-
-                st.success("Account created!")
-                st.markdown(f"""
-                <div class="access-code-container">
-                    <div class="access-code-label">Your Family Access Code</div>
-                    <div class="access-code">{access_code}</div>
-                    <div class="access-code-note">Save this code securely - it's your only way to access your account!</div>
-                </div>
-                """, unsafe_allow_html=True)
+    # Use the enhanced registration form
+    create_enhanced_registration_form()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1425,21 +1213,11 @@ def create_authenticated_family_interface(family_info):
 
     with col2:
         if st.button("🚪 Logout", use_container_width=True, type="secondary"):
-            # Enhanced logout - clear session from database
+            # Enhanced logout
             if 'family_session' in st.session_state:
-                try:
-                    auth_system = st.session_state.enhanced_auth
-                    conn = sqlite3.connect(auth_system.db_path)
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        'UPDATE user_sessions SET is_active = FALSE WHERE id = ?',
-                        (st.session_state.family_session,)
-                    )
-                    conn.commit()
-                    conn.close()
-                except:
-                    pass  # Silently fail if session doesn't exist
-
+                auth_system = st.session_state.get('enhanced_auth')
+                if auth_system:
+                    auth_system.logout_session(st.session_state.family_session)
                 del st.session_state.family_session
 
             if 'authenticated_family' in st.session_state:
@@ -1674,50 +1452,36 @@ def show_full_canvas_integration_tab(students):
 
 
 def main():
-    """Main application with clean design"""
+    """Main application with enhanced authentication"""
 
-    def main():
-        """Main application with clean design"""
+    # Initialize session state
+    if 'secure_agent' not in st.session_state:
+        st.session_state.secure_agent = SecureFamilyCareerAgent()
 
-        # Force remove Streamlit spacing
-        st.markdown("""
-        <style>
-        .block-container {
-            padding-top: 0rem !important;
-            margin-top: 0rem !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        # Initialize session state
-        if 'secure_agent' not in st.session_state:
-            st.session_state.secure_agent = SecureFamilyCareerAgent()
+    # Session cleanup
+    auth_system = st.session_state.get('enhanced_auth')
+    if auth_system:
+        auth_system.cleanup_expired_sessions()
 
-        # Enhanced authentication flow
-        if 'authenticated_family' not in st.session_state:
-            # Check for existing session first
-            if 'family_session' in st.session_state:
-                auth_system = st.session_state.enhanced_auth
-                session_info = auth_system.validate_session(st.session_state.family_session)
+    # Check for valid session
+    if 'family_session' in st.session_state and 'authenticated_family' not in st.session_state:
+        session_info = auth_system.validate_session(st.session_state.family_session)
+        if session_info:
+            st.session_state.authenticated_family = {
+                'id': session_info['family_id'],
+                'family_name': session_info['family_name'],
+                'email': session_info.get('email', ''),
+                'location': session_info.get('location', '')
+            }
 
-                if session_info:
-                    # Valid session found, auto-authenticate
-                    st.session_state.authenticated_family = {
-                        'id': session_info['family_id'],
-                        'family_name': session_info['family_name'],
-                        'email': session_info.get('email', ''),
-                        'location': '',  # You might want to fetch this from the database
-                    }
-
-            # Show appropriate interface
-            if 'authenticated_family' not in st.session_state:
-                if 'show_registration' in st.session_state:
-                    create_family_registration()
-                else:
-                    create_family_login()
-            else:
-                create_authenticated_family_interface(st.session_state.authenticated_family)
+    # Main application flow
+    if 'authenticated_family' not in st.session_state:
+        if 'show_registration' in st.session_state:
+            create_family_registration()
         else:
-            create_authenticated_family_interface(st.session_state.authenticated_family)
+            create_family_login()
+    else:
+        create_authenticated_family_interface(st.session_state.authenticated_family)
 
 
 def handle_email_verification():
