@@ -1097,11 +1097,27 @@ def show_enhanced_assignments_table(student, canvas_integrator):
                 st.rerun()
         return
 
-    # Filter controls
+    # Enhanced filter controls
     col1, col2 = st.columns(2)
 
     with col1:
-        days_filter = st.selectbox("Show assignments due in:", [7, 14, 30, 60], index=2)
+        # Enhanced time range options with clear descriptions
+        time_options = {
+            "Next 2 weeks": 14,
+            "Next 30 days": 30,
+            "Next 60 days": 60,
+            "Next 90 days": 90,
+            "This semester (6 months)": 180,
+            "All upcoming": 365
+        }
+
+        selected_timeframe = st.selectbox(
+            "Show assignments due in:",
+            list(time_options.keys()),
+            index=2  # Default to "Next 60 days"
+        )
+
+        days_filter = time_options[selected_timeframe]
 
     with col2:
         course_names = sorted(list(set([a['course_name'] for a in assignments])))
