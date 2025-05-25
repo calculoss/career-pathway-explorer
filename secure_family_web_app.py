@@ -20,263 +20,42 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# COMPLETE CSS WITH NUCLEAR SPACING FIX
+# Replace your entire CSS block with this:
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&display=swap');
 
-    /* =================== NUCLEAR STREAMLIT OVERRIDE =================== */
-
-    /* Kill ALL Streamlit default spacing with extreme prejudice */
+    /* KILL STREAMLIT SPACING - MOST AGGRESSIVE VERSION */
     .main .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
     }
 
-    .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        max-width: none !important;
-    }
-
-    /* Remove ALL element containers margins */
-    .element-container {
-        margin: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    /* Remove ALL markdown margins */
-    .stMarkdown {
-        margin-bottom: 0rem !important;
-        margin-top: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    /* Remove ALL vertical block gaps */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0rem !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    div[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 0rem !important;
-        margin-top: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    div[data-testid="stVerticalBlock"] > div:first-child {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Kill the app container spacing */
     .stApp > div:first-child {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
+        margin-top: -80px !important; /* Pull content up over header space */
     }
 
-    /* Remove header spacing completely */
-    header[data-testid="stHeader"] {
-        background: rgba(0,0,0,0) !important;
-        height: 0rem !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    /* Remove toolbar */
-    .stToolbar {
-        display: none !important;
-    }
-
-    /* Remove main menu */
-    #MainMenu {
-        visibility: hidden !important;
-        height: 0rem !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    /* Remove footer */
-    footer {
-        visibility: hidden !important;
-        height: 0rem !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-    }
-
-    /* Remove deploy button */
-    .stDeployButton {
-        display: none !important;
-    }
-
-    /* =================== GLOBAL STYLES =================== */
-    .stApp {
-        background-color: #ffffff !important;
-        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-        color: #21242c !important;
+    .element-container {
         margin: 0 !important;
         padding: 0 !important;
     }
 
-    /* =================== CUSTOM LAYOUT =================== */
-    .main-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px;
-        background: #ffffff;
-        min-height: calc(100vh - 0px); /* No header height to account for */
+    .stMarkdown {
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* =================== TYPOGRAPHY =================== */
-    .page-title {
-        font-size: 32px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 8px;
-        line-height: 1.2;
-        margin-top: 0 !important;
-        padding-top: 0 !important;
+    /* Hide Streamlit elements completely */
+    header[data-testid="stHeader"] {
+        display: none !important;
     }
 
-    .page-subtitle {
-        font-size: 18px;
-        color: #626569;
-        margin-bottom: 32px;
-        line-height: 1.4;
-        margin-top: 0 !important;
-        padding-top: 0 !important;
+    #MainMenu, footer, .stDeployButton, .stToolbar {
+        display: none !important;
     }
 
-    .section-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 16px;
-        margin-top: 32px;
-    }
-
-    .section-subtitle {
-        font-size: 16px;
-        color: #626569;
-        margin-bottom: 24px;
-        line-height: 1.5;
-    }
-
-    /* =================== NAVIGATION TABS =================== */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0;
-        background: transparent;
-        border-bottom: 2px solid #e7e8ea;
-        margin-bottom: 32px;
-        padding: 0;
-        margin-top: 0 !important;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        padding: 0 24px;
-        border-radius: 0;
-        border: none;
-        background: transparent;
-        color: #626569;
-        font-weight: 500;
-        font-size: 16px;
-        border-bottom: 3px solid transparent;
-        transition: all 0.2s ease;
-        margin-bottom: -2px;
-    }
-
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #21242c;
-        background: rgba(0, 166, 14, 0.05);
-    }
-
-    .stTabs [aria-selected="true"] {
-        color: #00a60e !important;
-        border-bottom-color: #00a60e !important;
-        background: transparent !important;
-        font-weight: 600 !important;
-    }
-
-    /* =================== CARDS & CONTAINERS =================== */
-    .family-header {
-        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 32px;
-        margin-bottom: 32px;
-        margin-top: 0 !important;
-        box-shadow: 0 4px 16px rgba(0, 166, 14, 0.2);
-    }
-
-    .family-title {
-        font-size: 28px;
-        font-weight: 600;
-        margin: 0 0 8px 0;
-    }
-
-    .family-details {
-        font-size: 16px;
-        margin: 0;
-        opacity: 0.9;
-    }
-
-    .student-card {
-        background: #ffffff;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 20px;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .student-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 4px;
-        height: 100%;
-        background: #00a60e;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .student-card:hover {
-        border-color: #00a60e;
-        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.15);
-        transform: translateY(-2px);
-    }
-
-    .student-card:hover::before {
-        opacity: 1;
-    }
-
-    .student-name {
-        font-size: 20px;
-        font-weight: 600;
-        color: #21242c;
-        margin: 0 0 8px 0;
-    }
-
-    .student-details {
-        font-size: 14px;
-        color: #626569;
-        line-height: 1.6;
-        margin: 0;
-    }
-
-    /* =================== BUTTONS =================== */
+    /* Your existing beautiful styles */
     .stButton > button {
         background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
         color: white;
@@ -289,7 +68,6 @@ st.markdown("""
         transition: all 0.3s ease;
         cursor: pointer;
         box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
-        text-transform: none;
     }
 
     .stButton > button:hover {
@@ -298,158 +76,68 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0, 166, 14, 0.3);
     }
 
-    .stButton > button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
+    /* Custom app container */
+    .custom-app {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: #ffffff;
+        font-family: 'Lato', sans-serif;
     }
 
-    /* Secondary buttons */
-    .stButton > button[kind="secondary"] {
+    .custom-header {
         background: #ffffff;
-        color: #21242c;
-        border: 2px solid #c4c6ca;
+        border-bottom: 1px solid #e7e8ea;
+        padding: 24px 0;
+        margin: 0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    .stButton > button[kind="secondary"]:hover {
-        background: #f7f8fa;
-        border-color: #9ca0a5;
-        transform: translateY(-1px);
-    }
-
-    /* =================== FORMS & INPUTS =================== */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select,
-    .stNumberInput > div > div > input {
-        border: 2px solid #c4c6ca;
-        border-radius: 8px;
-        padding: 14px 16px;
-        font-size: 16px;
-        font-family: 'Lato', sans-serif;
-        background: #ffffff;
-        color: #21242c;
-        transition: all 0.2s ease;
-    }
-
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stSelectbox > div > div > select:focus,
-    .stNumberInput > div > div > input:focus {
-        border-color: #00a60e;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(0, 166, 14, 0.1);
-    }
-
-    /* Form labels */
-    .stTextInput > label,
-    .stTextArea > label,
-    .stSelectbox > label,
-    .stNumberInput > label {
-        font-weight: 500;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    /* =================== FORMS CONTAINERS =================== */
-    .form-container {
-        background: #f7f8fa;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 40px;
-        margin: 32px 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-
-    .form-title {
-        font-size: 28px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 8px;
+    .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
         text-align: center;
     }
 
-    .form-subtitle {
-        font-size: 16px;
+    .app-title {
+        font-size: 42px;
+        font-weight: 600;
+        color: #21242c;
+        margin: 0;
+        letter-spacing: -1px;
+    }
+
+    .app-subtitle {
+        font-size: 18px;
+        color: #626569;
+        margin: 8px 0 0 0;
+        font-weight: 400;
+    }
+
+    .main-content-html {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px;
+        background: #ffffff;
+    }
+
+    /* Add your other styles here */
+    .page-title {
+        font-size: 32px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 8px;
+        line-height: 1.2;
+    }
+
+    .page-subtitle {
+        font-size: 18px;
         color: #626569;
         margin-bottom: 32px;
-        text-align: center;
-        line-height: 1.5;
+        line-height: 1.4;
     }
 
-    /* =================== ALERTS & MESSAGES =================== */
-    .stSuccess {
-        background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e8 100%);
-        border: 2px solid #00a60e;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .stError {
-        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-        border: 2px solid #ef4444;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .stInfo {
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        border: 2px solid #3b82f6;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .stWarning {
-        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-        border: 2px solid #f59e0b;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    /* =================== ACCESS CODE DISPLAY =================== */
-    .access-code-container {
-        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
-        color: white;
-        border-radius: 16px;
-        padding: 40px;
-        text-align: center;
-        margin: 32px 0;
-        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.3);
-    }
-
-    .access-code {
-        font-size: 42px;
-        font-weight: 700;
-        color: white;
-        letter-spacing: 6px;
-        font-family: 'Monaco', 'Menlo', monospace;
-        margin: 20px 0;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        padding: 16px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 8px;
-        border: 2px dashed rgba(255,255,255,0.3);
-    }
-
-    .access-code-label {
-        font-size: 20px;
-        color: white;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
-
-    .access-code-note {
-        font-size: 16px;
-        color: rgba(255,255,255,0.9);
-        margin-top: 20px;
-        line-height: 1.6;
-    }
-
-    /* =================== SECURITY FEATURES =================== */
     .security-features {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -465,12 +153,6 @@ st.markdown("""
         border: 2px solid #e7e8ea;
         transition: all 0.3s ease;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .security-feature:hover {
-        border-color: #00a60e;
-        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.1);
-        transform: translateY(-2px);
     }
 
     .security-icon {
@@ -490,155 +172,6 @@ st.markdown("""
         font-size: 14px;
         color: #626569;
         line-height: 1.6;
-    }
-
-    /* =================== CHAT INTERFACE =================== */
-    .chat-container {
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 32px;
-        margin: 32px 0;
-        background: #ffffff;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-
-    .chat-header {
-        border-bottom: 2px solid #e7e8ea;
-        padding-bottom: 20px;
-        margin-bottom: 24px;
-    }
-
-    .chat-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 4px;
-    }
-
-    .chat-subtitle {
-        font-size: 16px;
-        color: #626569;
-    }
-
-    .ai-response {
-        background: linear-gradient(135deg, #f7f8fa 0%, #f0f1f3 100%);
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        margin: 20px 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .ai-response-header {
-        font-size: 18px;
-        font-weight: 600;
-        color: #00a60e;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    /* =================== METRICS & STATS =================== */
-    .metric-card {
-        background: #ffffff;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        text-align: center;
-        margin-bottom: 16px;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .metric-card:hover {
-        border-color: #00a60e;
-        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.1);
-    }
-
-    .metric-value {
-        font-size: 32px;
-        font-weight: 700;
-        color: #00a60e;
-        margin-bottom: 8px;
-        line-height: 1;
-    }
-
-    .metric-label {
-        font-size: 14px;
-        color: #626569;
-        font-weight: 500;
-    }
-
-    /* =================== MILESTONE CARDS =================== */
-    .milestone-card {
-        border-left: 4px solid #00a60e;
-        padding: 20px;
-        margin: 16px 0;
-        background: #ffffff;
-        border-radius: 8px;
-        border: 1px solid #e7e8ea;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .milestone-card:hover {
-        border-color: #c4c6ca;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-1px);
-    }
-
-    .milestone-title {
-        font-weight: 600;
-        font-size: 16px;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    .milestone-description {
-        color: #626569;
-        margin: 6px 0;
-        line-height: 1.6;
-    }
-
-    .milestone-date {
-        font-size: 14px;
-        font-weight: 500;
-        color: #00a60e;
-    }
-
-    /* =================== RESPONSIVE DESIGN =================== */
-    @media (max-width: 768px) {
-        .main-content {
-            padding: 16px;
-        }
-
-        .page-title {
-            font-size: 28px;
-        }
-
-        .access-code {
-            font-size: 28px;
-            letter-spacing: 3px;
-        }
-
-        .security-features {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-
-        .stTabs [data-baseweb="tab"] {
-            padding: 0 12px;
-            font-size: 14px;
-        }
-
-        .form-container {
-            padding: 24px;
-        }
-
-        .family-header {
-            padding: 24px;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -768,14 +301,21 @@ def close_html_content():
 
 # Replace your create_header() and create_clean_header() functions with:
 def create_header():
-    """New header function - calls HTML version"""
-    create_html_header_and_start_content()
-
+    """HTML-first header with zero spacing"""
+    st.markdown("""
+    <div class="custom-app">
+        <div class="custom-header">
+            <div class="header-content">
+                <h1 class="app-title">CareerPath</h1>
+                <p class="app-subtitle">Professional Career Guidance Platform</p>
+            </div>
+        </div>
+        <div class="main-content-html">
+    """, unsafe_allow_html=True)
 
 def create_clean_header():
-    """New clean header function - calls HTML version"""
-    create_html_header_and_start_content()
-
+    """Same as create_header for consistency"""
+    create_header()
 def create_header():
     """Backward compatibility - calls create_clean_header"""
     create_clean_header()
