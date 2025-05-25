@@ -663,9 +663,9 @@ class SecureFamilyCareerAgent:
 
 
 def create_clean_header():
-    """Minimalist professional header"""
+    """Zero-margin header that sits flush at top"""
     st.markdown("""
-    <div style="background: #ffffff; padding: 32px 0 24px 0; margin: 0;">
+    <div style="background: #ffffff; padding: 24px 0 16px 0; margin: 0; border-bottom: 1px solid #e7e8ea;">
         <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px; text-align: center;">
             <h1 style="font-size: 42px; font-weight: 600; color: #21242c; margin: 0; letter-spacing: -1px;">CareerPath</h1>
             <p style="font-size: 18px; color: #626569; margin: 8px 0 0 0; font-weight: 400;">Professional Career Guidance Platform</p>
