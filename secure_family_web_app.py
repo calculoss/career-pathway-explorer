@@ -5,6 +5,7 @@ from datetime import datetime
 import anthropic
 import os
 import json
+import sqlite3
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
 from canvas_integration import CanvasIntegrator, SimpleMilestoneGenerator, show_canvas_setup
@@ -20,12 +21,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Replace your entire CSS block with this:
+# =================== SINGLE COMPREHENSIVE CSS BLOCK ===================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&display=swap');
 
-    /* KILL STREAMLIT SPACING - MOST AGGRESSIVE VERSION */
+    /* NUCLEAR STREAMLIT SPACING FIX */
     .main .block-container {
         padding: 0 !important;
         margin: 0 !important;
@@ -33,7 +34,7 @@ st.markdown("""
     }
 
     .stApp > div:first-child {
-        margin-top: -80px !important; /* Pull content up over header space */
+        margin-top: -80px !important;
     }
 
     .element-container {
@@ -55,180 +56,14 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Your existing beautiful styles */
-    .stButton > button {
-        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 14px 28px;
-        font-size: 16px;
-        font-weight: 600;
+    /* Global App Styles */
+    .stApp {
+        background-color: #ffffff;
         font-family: 'Lato', sans-serif;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
-    }
-
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #008a0c 0%, #007a0b 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.3);
-    }
-
-    /* Custom app container */
-    .custom-app {
-        margin: 0;
-        padding: 0;
-        min-height: 100vh;
-        background: #ffffff;
-        font-family: 'Lato', sans-serif;
-    }
-
-    .custom-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e7e8ea;
-        padding: 24px 0;
-        margin: 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .header-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 24px;
-        text-align: center;
-    }
-
-    .app-title {
-        font-size: 42px;
-        font-weight: 600;
         color: #21242c;
-        margin: 0;
-        letter-spacing: -1px;
     }
 
-    .app-subtitle {
-        font-size: 18px;
-        color: #626569;
-        margin: 8px 0 0 0;
-        font-weight: 400;
-    }
-
-    .main-content-html {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 32px 24px;
-        background: #ffffff;
-    }
-
-    /* Add your other styles here */
-    .page-title {
-        font-size: 32px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 8px;
-        line-height: 1.2;
-    }
-
-    .page-subtitle {
-        font-size: 18px;
-        color: #626569;
-        margin-bottom: 32px;
-        line-height: 1.4;
-    }
-
-    .security-features {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 24px;
-        margin: 40px 0;
-    }
-
-    .security-feature {
-        text-align: center;
-        padding: 32px 24px;
-        background: #ffffff;
-        border-radius: 12px;
-        border: 2px solid #e7e8ea;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .security-icon {
-        font-size: 40px;
-        margin-bottom: 16px;
-        color: #00a60e;
-    }
-
-    .security-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    .security-desc {
-        font-size: 14px;
-        color: #626569;
-        line-height: 1.6;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-class SecureFamilyCareerAgent:
-    def __init__(self):
-        try:
-            api_key = st.secrets["ANTHROPIC_API_KEY"]
-        except:
-            load_dotenv()
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-
-        self.client = anthropic.Anthropic(api_key=api_key)
-
-        if 'secure_db' not in st.session_state:
-            st.session_state.secure_db = MultiFamilyDatabase()
-        self.db = st.session_state.secure_db
-
-        if 'enhanced_auth' not in st.session_state:
-            st.session_state.enhanced_auth = EnhancedAuthSystem()
-        self.auth_system = st.session_state.enhanced_auth
-
-
-# Add this CSS injection FIRST - more aggressive approach
-st.markdown("""
-<style>
-    /* KILL STREAMLIT SPACING - MOST AGGRESSIVE VERSION */
-    .main .block-container {
-        padding: 0 !important;
-        margin: 0 !important;
-        max-width: 100% !important;
-    }
-
-    .stApp > div:first-child {
-        margin-top: -80px !important; /* Pull content up over header space */
-    }
-
-    .element-container {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .stMarkdown {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* Hide Streamlit elements completely */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-
-    #MainMenu, footer, .stDeployButton, .stToolbar {
-        display: none !important;
-    }
-
-    /* Custom app container */
+    /* Custom Layout */
     .custom-app {
         margin: 0;
         padding: 0;
@@ -273,12 +108,518 @@ st.markdown("""
         padding: 32px 24px;
         background: #ffffff;
     }
+
+    /* Typography */
+    .page-title {
+        font-size: 32px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 8px;
+        line-height: 1.2;
+    }
+
+    .page-subtitle {
+        font-size: 18px;
+        color: #626569;
+        margin-bottom: 32px;
+        line-height: 1.4;
+    }
+
+    .section-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 16px;
+        margin-top: 32px;
+    }
+
+    .section-subtitle {
+        font-size: 16px;
+        color: #626569;
+        margin-bottom: 24px;
+        line-height: 1.5;
+    }
+
+    /* Security Features */
+    .security-features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 24px;
+        margin: 40px 0;
+    }
+
+    .security-feature {
+        text-align: center;
+        padding: 32px 24px;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 2px solid #e7e8ea;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .security-feature:hover {
+        border-color: #00a60e;
+        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .security-icon {
+        font-size: 40px;
+        margin-bottom: 16px;
+        color: #00a60e;
+    }
+
+    .security-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 8px;
+    }
+
+    .security-desc {
+        font-size: 14px;
+        color: #626569;
+        line-height: 1.6;
+    }
+
+    /* Benefits Grid */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin: 24px 0;
+    }
+
+    .feature-item {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 6px;
+        padding: 16px;
+        text-align: center;
+        font-size: 14px;
+        color: #0c4a6e;
+        font-weight: 500;
+    }
+
+    /* Form Containers */
+    .form-container {
+        background: #f7f8fa;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 40px;
+        margin: 32px 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .form-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+
+    .form-subtitle {
+        font-size: 16px;
+        color: #626569;
+        margin-bottom: 32px;
+        text-align: center;
+        line-height: 1.5;
+    }
+
+    /* Family Header */
+    .family-header {
+        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 4px 16px rgba(0, 166, 14, 0.2);
+    }
+
+    .family-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+    }
+
+    .family-details {
+        font-size: 16px;
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    /* Student Cards */
+    .student-card {
+        background: #ffffff;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .student-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: #00a60e;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .student-card:hover {
+        border-color: #00a60e;
+        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .student-card:hover::before {
+        opacity: 1;
+    }
+
+    .student-name {
+        font-size: 20px;
+        font-weight: 600;
+        color: #21242c;
+        margin: 0 0 8px 0;
+    }
+
+    .student-details {
+        font-size: 14px;
+        color: #626569;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    /* Button Styles */
+    .stButton > button {
+        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 14px 28px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: 'Lato', sans-serif;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
+    }
+
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #008a0c 0%, #007a0b 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.3);
+    }
+
+    .stButton > button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
+    }
+
+    /* Secondary button */
+    .stButton > button[kind="secondary"] {
+        background: #ffffff;
+        color: #21242c;
+        border: 2px solid #c4c6ca;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .stButton > button[kind="secondary"]:hover {
+        background: #f7f8fa;
+        border-color: #9ca0a5;
+        transform: translateY(-1px);
+    }
+
+    /* Form Inputs */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > select,
+    .stNumberInput > div > div > input {
+        border: 2px solid #c4c6ca;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-size: 16px;
+        font-family: 'Lato', sans-serif;
+        background: #ffffff;
+        color: #21242c;
+        transition: all 0.2s ease;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div > select:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #00a60e;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0, 166, 14, 0.1);
+    }
+
+    /* Form labels */
+    .stTextInput > label,
+    .stTextArea > label,
+    .stSelectbox > label,
+    .stNumberInput > label {
+        font-weight: 500;
+        color: #21242c;
+        margin-bottom: 8px;
+    }
+
+    /* Tab Styles */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background: transparent;
+        border-bottom: 2px solid #e7e8ea;
+        margin-bottom: 32px;
+        padding: 0;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        padding: 0 24px;
+        border-radius: 0;
+        border: none;
+        background: transparent;
+        color: #626569;
+        font-weight: 500;
+        font-size: 16px;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+        margin-bottom: -2px;
+    }
+
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #21242c;
+        background: rgba(0, 166, 14, 0.05);
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #00a60e !important;
+        border-bottom-color: #00a60e !important;
+        background: transparent !important;
+        font-weight: 600 !important;
+    }
+
+    /* Alerts & Messages */
+    .stSuccess {
+        background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e8 100%);
+        border: 2px solid #00a60e;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    .stError {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border: 2px solid #ef4444;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    .stInfo {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border: 2px solid #3b82f6;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    .stWarning {
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        border: 2px solid #f59e0b;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    /* Chat Interface */
+    .chat-container {
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 32px;
+        margin: 32px 0;
+        background: #ffffff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .chat-header {
+        border-bottom: 2px solid #e7e8ea;
+        padding-bottom: 20px;
+        margin-bottom: 24px;
+    }
+
+    .chat-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #21242c;
+        margin-bottom: 4px;
+    }
+
+    .chat-subtitle {
+        font-size: 16px;
+        color: #626569;
+    }
+
+    .ai-response {
+        background: linear-gradient(135deg, #f7f8fa 0%, #f0f1f3 100%);
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 24px;
+        margin: 20px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .ai-response-header {
+        font-size: 18px;
+        font-weight: 600;
+        color: #00a60e;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Metrics */
+    .metric-card {
+        background: #ffffff;
+        border: 2px solid #e7e8ea;
+        border-radius: 12px;
+        padding: 24px;
+        text-align: center;
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .metric-card:hover {
+        border-color: #00a60e;
+        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.1);
+    }
+
+    .metric-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #00a60e;
+        margin-bottom: 8px;
+        line-height: 1;
+    }
+
+    .metric-label {
+        font-size: 14px;
+        color: #626569;
+        font-weight: 500;
+    }
+
+    /* Milestone Cards */
+    .milestone-card {
+        border-left: 4px solid #00a60e;
+        padding: 20px;
+        margin: 16px 0;
+        background: #ffffff;
+        border-radius: 8px;
+        border: 1px solid #e7e8ea;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .milestone-card:hover {
+        border-color: #c4c6ca;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+
+    .milestone-title {
+        font-weight: 600;
+        font-size: 16px;
+        color: #21242c;
+        margin-bottom: 8px;
+    }
+
+    .milestone-description {
+        color: #626569;
+        margin: 6px 0;
+        line-height: 1.6;
+    }
+
+    .milestone-date {
+        font-size: 14px;
+        font-weight: 500;
+        color: #00a60e;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .main-content {
+            padding: 16px;
+        }
+
+        .header-content {
+            padding: 0 16px;
+        }
+
+        .app-title {
+            font-size: 32px;
+        }
+
+        .page-title {
+            font-size: 28px;
+        }
+
+        .security-features {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .features-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            padding: 0 12px;
+            font-size: 14px;
+        }
+
+        .form-container {
+            padding: 24px;
+        }
+
+        .family-header {
+            padding: 24px;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# =================== MAIN APP CLASS ===================
+class SecureFamilyCareerAgent:
+    def __init__(self):
+        try:
+            api_key = st.secrets["ANTHROPIC_API_KEY"]
+        except:
+            load_dotenv()
+            api_key = os.getenv("ANTHROPIC_API_KEY")
 
-def create_html_header_and_start_content():
-    """Create header and start main content in pure HTML"""
+        self.client = anthropic.Anthropic(api_key=api_key)
+
+        if 'secure_db' not in st.session_state:
+            st.session_state.secure_db = MultiFamilyDatabase()
+        self.db = st.session_state.secure_db
+
+        if 'enhanced_auth' not in st.session_state:
+            st.session_state.enhanced_auth = EnhancedAuthSystem()
+        self.auth_system = st.session_state.enhanced_auth
+
+# =================== LAYOUT FUNCTIONS ===================
+def create_app_layout():
+    """Create consistent app layout with header"""
     st.markdown("""
     <div class="custom-app">
         <div class="custom-header">
@@ -290,42 +631,17 @@ def create_html_header_and_start_content():
         <div class="main-content">
     """, unsafe_allow_html=True)
 
-
-def close_html_content():
-    """Close the HTML content containers"""
+def close_app_layout():
+    """Close the app layout"""
     st.markdown("""
         </div> <!-- Close main-content -->
     </div> <!-- Close custom-app -->
     """, unsafe_allow_html=True)
 
-
-# Replace your create_header() and create_clean_header() functions with:
-def create_header():
-    """HTML-first header with zero spacing"""
-    st.markdown("""
-    <div class="custom-app">
-        <div class="custom-header">
-            <div class="header-content">
-                <h1 class="app-title">CareerPath</h1>
-                <p class="app-subtitle">Professional Career Guidance Platform</p>
-            </div>
-        </div>
-        <div class="main-content-html">
-    """, unsafe_allow_html=True)
-
-def create_clean_header():
-    """Same as create_header for consistency"""
-    create_header()
-def create_header():
-    """Backward compatibility - calls create_clean_header"""
-    create_clean_header()
-
-
+# =================== MAIN FUNCTIONS ===================
 def create_family_login():
     """Enhanced login interface with both email/password and access code options"""
-    create_header()
-
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+    create_app_layout()
 
     # Check for session validation first
     if 'family_session' in st.session_state:
@@ -409,13 +725,11 @@ def create_family_login():
                 family_info = auth_system.authenticate_family(email, password)
 
                 if family_info:
-                    if family_info.get('email_verified', True):  # Default to True for backward compatibility
+                    if family_info.get('email_verified', True):
                         # Create session
                         session_duration = 30 * 24 if remember_me else 24  # hours
                         session_id = auth_system.create_session(
-                            family_info['id'],
-                            st.context.headers.get('user-agent', ''),
-                            st.context.headers.get('x-forwarded-for', '')
+                            family_info['id']
                         )
 
                         st.session_state.family_session = session_id
@@ -427,14 +741,12 @@ def create_family_login():
 
                         st.rerun()
                     else:
-                        st.warning(
-                            "Please verify your email address before logging in. Check your inbox for the verification link.")
+                        st.warning("Please verify your email address before logging in. Check your inbox for the verification link.")
                 else:
                     st.error("Invalid email or password. Please try again.")
 
             if forgot_password:
-                st.info(
-                    "Password reset functionality coming soon! For now, please use your access code or contact support.")
+                st.info("Password reset functionality coming soon! For now, please use your access code or contact support.")
 
     with tab2:
         # Access Code Login (Backward Compatibility)
@@ -478,9 +790,7 @@ def create_family_login():
 
     # Registration section
     st.markdown('<div class="section-title">New to CareerPath?</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="section-subtitle">Join families across Australia getting professional career guidance</div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Join families across Australia getting professional career guidance</div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -491,9 +801,125 @@ def create_family_login():
     # Show recent login stats (optional)
     show_platform_stats()
 
+    close_app_layout()
+
+def create_family_registration():
+    """Enhanced family registration"""
+    create_app_layout()
+
+    st.markdown("""
+    <div class="page-title">Create Your Family Account</div>
+    <div class="page-subtitle">Join thousands of Australian families getting AI-powered career guidance</div>
+    """, unsafe_allow_html=True)
+
+    # Show benefits
+    st.markdown("""
+    <div class="features-grid">
+        <div class="feature-item">🎯 Personalised AI Career Guidance</div>
+        <div class="feature-item">📊 Live Australian Employment Data</div>
+        <div class="feature-item">🎓 Canvas LMS Integration</div>
+        <div class="feature-item">👨‍👩‍👧‍👦 Multi-Student Family Support</div>
+        <div class="feature-item">🔒 Secure & Private</div>
+        <div class="feature-item">🆓 Completely Free to Use</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="form-container">', unsafe_allow_html=True)
+
+    # Use the enhanced registration form
+    create_enhanced_registration_form()
+
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # Back to login
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("← Back to Login", use_container_width=True, type="secondary"):
+            if 'show_registration' in st.session_state:
+                del st.session_state.show_registration
+            st.rerun()
 
+    close_app_layout()
+
+def create_authenticated_family_interface(family_info):
+    """Enhanced authenticated family interface"""
+    # Session validation
+    if 'family_session' in st.session_state:
+        auth_system = st.session_state.enhanced_auth
+        session_info = auth_system.validate_session(st.session_state.family_session)
+
+        if not session_info:
+            # Session expired, clear and redirect to login
+            if 'family_session' in st.session_state:
+                del st.session_state.family_session
+            if 'authenticated_family' in st.session_state:
+                del st.session_state.authenticated_family
+            st.warning("Your session has expired. Please log in again.")
+            st.rerun()
+
+    create_app_layout()
+
+    # Family header
+    col1, col2 = st.columns([4, 1])
+
+    with col1:
+        # Show email if available, otherwise show access code
+        contact_info = family_info.get('email', f"Access Code: {family_info.get('access_code', 'N/A')}")
+
+        st.markdown(f"""
+        <div class="family-header">
+            <div class="family-title">Welcome, {family_info['family_name']} 👨‍👩‍👧‍👦</div>
+            <div class="family-details">{contact_info} | {family_info.get('location', 'Location not set')}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
+            # Enhanced logout
+            if 'family_session' in st.session_state:
+                auth_system = st.session_state.get('enhanced_auth')
+                if auth_system:
+                    auth_system.logout_session(st.session_state.family_session)
+                del st.session_state.family_session
+
+            if 'authenticated_family' in st.session_state:
+                del st.session_state.authenticated_family
+
+            st.success("Logged out successfully!")
+            st.rerun()
+
+    # Get students
+    db = st.session_state.secure_db
+    students = db.get_family_students(family_info['id'])
+
+    if not students:
+        st.info("No students found. Contact support to add students to your family account.")
+        close_app_layout()
+        return
+
+    # Tab navigation
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "👥 Students & Career Guidance",
+        "📚 Canvas LMS Integration",
+        "📊 Progress & Reports",
+        "⚙️ Family Settings"
+    ])
+
+    with tab1:
+        show_students_and_career_tab(students, family_info, db)
+
+    with tab2:
+        show_full_canvas_integration_tab(students)
+
+    with tab3:
+        show_progress_and_reports_tab(students, family_info)
+
+    with tab4:
+        show_family_settings_tab(family_info, students)
+
+    close_app_layout()
+
+# =================== SUPPORTING FUNCTIONS ===================
 def track_login_event(family_id: str, method: str):
     """Track login events for analytics"""
     try:
@@ -521,7 +947,6 @@ def track_login_event(family_id: str, method: str):
         conn.close()
     except Exception as e:
         print(f"Login tracking error: {e}")
-
 
 def show_platform_stats():
     """Show encouraging platform statistics"""
@@ -561,144 +986,6 @@ def show_platform_stats():
 
     except Exception as e:
         pass  # Silently fail if tables don't exist yet
-
-
-def create_family_registration():
-    """Enhanced family registration - simplified integration"""
-    create_header()
-
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="page-title">Create Your Family Account</div>
-    <div class="page-subtitle">Join thousands of Australian families getting AI-powered career guidance</div>
-    """, unsafe_allow_html=True)
-
-    # Show benefits
-    st.markdown("""
-    <div class="features-grid">
-        <div class="feature-item">🎯 Personalised AI Career Guidance</div>
-        <div class="feature-item">📊 Live Australian Employment Data</div>
-        <div class="feature-item">🎓 Canvas LMS Integration</div>
-        <div class="feature-item">👨‍👩‍👧‍👦 Multi-Student Family Support</div>
-        <div class="feature-item">🔒 Secure & Private</div>
-        <div class="feature-item">🆓 Completely Free to Use</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="form-container">', unsafe_allow_html=True)
-
-    # Use the enhanced registration form
-    create_enhanced_registration_form()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Back to login
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("← Back to Login", use_container_width=True, type="secondary"):
-            if 'show_registration' in st.session_state:
-                del st.session_state.show_registration
-            st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def create_authenticated_family_interface(family_info):
-    """Enhanced authenticated family interface"""
-    if 'family_session' in st.session_state:
-        auth_system = st.session_state.enhanced_auth
-        session_info = auth_system.validate_session(st.session_state.family_session)
-
-        if not session_info:
-            # Session expired, clear and redirect to login
-            if 'family_session' in st.session_state:
-                del st.session_state.family_session
-            if 'authenticated_family' in st.session_state:
-                del st.session_state.authenticated_family
-            st.warning("Your session has expired. Please log in again.")
-            st.rerun()
-
-    create_header()
-
-    st.markdown('<div class="main-content">', unsafe_allow_html=True)
-
-    # Family header with enhanced info
-    col1, col2 = st.columns([4, 1])
-
-    with col1:
-        # Show email if available, otherwise show access code
-        contact_info = family_info.get('email', f"Access Code: {family_info.get('access_code', 'N/A')}")
-
-        st.markdown(f"""
-            <div class="family-header">
-                <div class="family-title">Welcome, {family_info['family_name']} 👨‍👩‍👧‍👦</div>
-                <div class="family-details">{contact_info} | {family_info.get('location', 'Location not set')}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    with col2:
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
-            # Enhanced logout
-            if 'family_session' in st.session_state:
-                auth_system = st.session_state.get('enhanced_auth')
-                if auth_system:
-                    auth_system.logout_session(st.session_state.family_session)
-                del st.session_state.family_session
-
-            if 'authenticated_family' in st.session_state:
-                del st.session_state.authenticated_family
-
-            st.success("Logged out successfully!")
-            st.rerun()
-
-    create_clean_header()
-
-    st.markdown('<div style="max-width: 1200px; margin: 0 auto; padding: 24px; background: #ffffff;">', unsafe_allow_html=True)
-
-    # Family header
-    col1, col2 = st.columns([4, 1])
-
-    with col1:
-        st.markdown(f"""
-        <div class="family-header">
-            <div class="family-title">Welcome, {family_info['family_name']}</div>
-            <div class="family-details">Family Code: {family_info['access_code']} | {family_info['email']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        if st.button("Logout", use_container_width=True, type="secondary"):
-            del st.session_state.authenticated_family
-            st.rerun()
-
-    # Get students
-    db = st.session_state.secure_db
-    students = db.get_family_students(family_info['id'])
-
-    if not students:
-        st.info("No students found. Contact support to add students to your family account.")
-        st.markdown("</div>", unsafe_allow_html=True)
-        return
-
-    # Tab navigation
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["👥 Students & Career Guidance", "📚 Canvas LMS Integration", "📊 Progress & Reports", "⚙️ Family Settings"])
-
-    with tab1:
-        show_students_and_career_tab(students, family_info, db)
-
-    with tab2:
-        show_full_canvas_integration_tab(students)  # Changed from show_canvas_integration_tab
-
-    with tab3:
-        show_progress_and_reports_tab(students, family_info)
-
-    with tab4:
-        show_family_settings_tab(family_info, students)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def show_students_and_career_tab(students, family_info, db):
     """Show students and career guidance"""
@@ -773,7 +1060,6 @@ def show_students_and_career_tab(students, family_info, db):
 
                 st.success("Career guidance session saved to your family records.")
 
-
 def show_progress_and_reports_tab(students, family_info):
     """Show progress tracking and reports"""
     st.markdown('<div class="section-title">📊 Progress Tracking & Reports</div>', unsafe_allow_html=True)
@@ -820,7 +1106,6 @@ def show_progress_and_reports_tab(students, family_info):
         if len(students) > 1:
             st.markdown("---")
 
-
 def show_family_settings_tab(family_info, students):
     """Show family settings and management"""
     st.markdown('<div class="section-title">⚙️ Family Settings</div>', unsafe_allow_html=True)
@@ -830,7 +1115,7 @@ def show_family_settings_tab(family_info, students):
     with col1:
         st.markdown("#### Family Information")
         st.text_input("Family Name", value=family_info['family_name'], disabled=True)
-        st.text_input("Email", value=family_info['email'], disabled=True)
+        st.text_input("Email", value=family_info.get('email', ''), disabled=True)
         st.text_input("Location", value=family_info.get('location', ''), disabled=True)
 
     with col2:
@@ -853,13 +1138,10 @@ def show_family_settings_tab(family_info, students):
         if st.button("Contact Support", use_container_width=True):
             st.info("Support: support@careerpath.edu.au")
 
-
 def show_full_canvas_integration_tab(students):
     """Show FULL Canvas LMS integration with complete functionality"""
     st.markdown('<div class="section-title">📚 Canvas LMS Integration</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="section-subtitle">Connect your students\' Canvas accounts to sync assignments, exams, and generate AI study plans</div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Connect your students\' Canvas accounts to sync assignments, exams, and generate AI study plans</div>', unsafe_allow_html=True)
 
     # Initialize Canvas integrator in session state
     if 'canvas_integrator' not in st.session_state:
@@ -876,7 +1158,7 @@ def show_full_canvas_integration_tab(students):
         if len(students) > 1:
             st.markdown("---")
 
-
+# =================== MAIN APPLICATION ===================
 def main():
     """Main application with enhanced authentication"""
 
@@ -909,65 +1191,5 @@ def main():
     else:
         create_authenticated_family_interface(st.session_state.authenticated_family)
 
-
-def handle_email_verification():
-    """Handle email verification from URL parameters"""
-    # This function would handle email verification tokens
-    # You'd typically call this from your main function if you detect verification parameters
-
-    # Get URL parameters (Streamlit doesn't have built-in URL parameter support,
-    # but you can implement this if needed)
-
-    # For now, create a simple verification interface
-    if st.sidebar.button("🔍 Verify Email"):
-        st.markdown("### Email Verification")
-
-        verification_token = st.text_input("Enter verification token from your email:")
-
-        if st.button("Verify Email"):
-            if verification_token:
-                try:
-                    auth_system = st.session_state.enhanced_auth
-                    conn = sqlite3.connect(auth_system.db_path)
-                    cursor = conn.cursor()
-
-                    # Check token validity
-                    cursor.execute('''
-                        SELECT family_id FROM email_verification_tokens 
-                        WHERE token = ? AND expires_at > ? AND used = FALSE
-                    ''', (verification_token, datetime.now()))
-
-                    result = cursor.fetchone()
-
-                    if result:
-                        family_id = result[0]
-
-                        # Mark email as verified
-                        cursor.execute('''
-                            UPDATE families SET email_verified = TRUE WHERE id = ?
-                        ''', (family_id,))
-
-                        # Mark token as used
-                        cursor.execute('''
-                            UPDATE email_verification_tokens SET used = TRUE WHERE token = ?
-                        ''', (verification_token,))
-
-                        conn.commit()
-                        conn.close()
-
-                        st.success("✅ Email verified successfully! You can now log in.")
-
-                        # Clear verification state
-                        time.sleep(2)
-                        st.rerun()
-
-                    else:
-                        st.error("Invalid or expired verification token.")
-                        conn.close()
-
-                except Exception as e:
-                    st.error(f"Verification failed: {str(e)}")
-            else:
-                st.warning("Please enter your verification token.")
 if __name__ == "__main__":
     main()
