@@ -662,16 +662,119 @@ class SecureFamilyCareerAgent:
         self.auth_system = st.session_state.enhanced_auth
 
 
-def create_clean_header():
-    """Zero-margin header that sits flush at top"""
+# Add this CSS injection FIRST - more aggressive approach
+st.markdown("""
+<style>
+    /* KILL STREAMLIT SPACING - MOST AGGRESSIVE VERSION */
+    .main .block-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .stApp > div:first-child {
+        margin-top: -80px !important; /* Pull content up over header space */
+    }
+
+    .element-container {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .stMarkdown {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Hide Streamlit elements completely */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    #MainMenu, footer, .stDeployButton, .stToolbar {
+        display: none !important;
+    }
+
+    /* Custom app container */
+    .custom-app {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: #ffffff;
+        font-family: 'Lato', sans-serif;
+    }
+
+    .custom-header {
+        background: #ffffff;
+        border-bottom: 1px solid #e7e8ea;
+        padding: 24px 0;
+        margin: 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+        text-align: center;
+    }
+
+    .app-title {
+        font-size: 42px;
+        font-weight: 600;
+        color: #21242c;
+        margin: 0;
+        letter-spacing: -1px;
+    }
+
+    .app-subtitle {
+        font-size: 18px;
+        color: #626569;
+        margin: 8px 0 0 0;
+        font-weight: 400;
+    }
+
+    .main-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px;
+        background: #ffffff;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+def create_html_header_and_start_content():
+    """Create header and start main content in pure HTML"""
     st.markdown("""
-    <div style="background: #ffffff; padding: 24px 0 16px 0; margin: 0; border-bottom: 1px solid #e7e8ea;">
-        <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px; text-align: center;">
-            <h1 style="font-size: 42px; font-weight: 600; color: #21242c; margin: 0; letter-spacing: -1px;">CareerPath</h1>
-            <p style="font-size: 18px; color: #626569; margin: 8px 0 0 0; font-weight: 400;">Professional Career Guidance Platform</p>
+    <div class="custom-app">
+        <div class="custom-header">
+            <div class="header-content">
+                <h1 class="app-title">CareerPath</h1>
+                <p class="app-subtitle">Professional Career Guidance Platform</p>
+            </div>
         </div>
-    </div>
+        <div class="main-content">
     """, unsafe_allow_html=True)
+
+
+def close_html_content():
+    """Close the HTML content containers"""
+    st.markdown("""
+        </div> <!-- Close main-content -->
+    </div> <!-- Close custom-app -->
+    """, unsafe_allow_html=True)
+
+
+# Replace your create_header() and create_clean_header() functions with:
+def create_header():
+    """New header function - calls HTML version"""
+    create_html_header_and_start_content()
+
+
+def create_clean_header():
+    """New clean header function - calls HTML version"""
+    create_html_header_and_start_content()
 
 def create_header():
     """Backward compatibility - calls create_clean_header"""
