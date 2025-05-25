@@ -1,11 +1,9 @@
-# enhanced_auth.py
+# enhanced_auth.py - Clean version with NO email dependencies
 import hashlib
 import secrets
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Optional, Dict
-import smtplib
-from email.mime.text import MimeText
 import streamlit as st
 
 
@@ -19,22 +17,15 @@ class EnhancedAuthSystem:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # Enhanced families table with email/password auth
-        cursor.execute('''
-            ALTER TABLE families ADD COLUMN password_hash TEXT;
-        ''')
+        try:
+            cursor.execute('ALTER TABLE families ADD COLUMN password_hash TEXT')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
-        cursor.execute('''
-            ALTER TABLE families ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
-        ''')
-
-        cursor.execute('''
-            ALTER TABLE families ADD COLUMN reset_token TEXT;
-        ''')
-
-        cursor.execute('''
-            ALTER TABLE families ADD COLUMN reset_token_expires DATETIME;
-        ''')
+        try:
+            cursor.execute('ALTER TABLE families ADD COLUMN email_verified BOOLEAN DEFAULT TRUE')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
         # User sessions table
         cursor.execute('''
@@ -50,15 +41,14 @@ class EnhancedAuthSystem:
             )
         ''')
 
-        # Email verification tokens
+        # Login events
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS email_verification_tokens (
+            CREATE TABLE IF NOT EXISTS login_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 family_id TEXT,
-                token TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                expires_at DATETIME,
-                used BOOLEAN DEFAULT FALSE,
+                login_method TEXT,
+                login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                success BOOLEAN DEFAULT TRUE,
                 FOREIGN KEY (family_id) REFERENCES families (id)
             )
         ''')
@@ -102,22 +92,18 @@ class EnhancedAuthSystem:
         cursor = conn.cursor()
 
         cursor.execute('''
-            INSERT INTO families (id, family_name, email, location, access_code, password_hash)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (family_id, family_name, email, location, access_code, password_hash))
+            INSERT INTO families (id, family_name, email, location, access_code, password_hash, email_verified)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (family_id, family_name, email, location, access_code, password_hash, True))
 
         conn.commit()
         conn.close()
-
-        # Send verification email
-        verification_token = self.create_email_verification_token(family_id)
-        self.send_verification_email(email, family_name, verification_token)
 
         return {
             'family_id': family_id,
             'access_code': access_code,
             'status': 'success',
-            'message': 'Registration successful. Please check your email to verify your account.'
+            'message': 'Registration successful!'
         }
 
     def authenticate_family(self, email: str, password: str) -> Optional[Dict]:
@@ -133,21 +119,21 @@ class EnhancedAuthSystem:
         result = cursor.fetchone()
         conn.close()
 
-        if result and self.verify_password(password, result[5]):
+        if result and result[5] and self.verify_password(password, result[5]):
             return {
                 'id': result[0],
                 'family_name': result[1],
                 'email': result[2],
                 'location': result[3],
                 'access_code': result[4],
-                'email_verified': result[6]
+                'email_verified': True
             }
         return None
 
     def create_session(self, family_id: str, user_agent: str = "", ip_address: str = "") -> str:
         """Create new user session"""
         session_id = secrets.token_urlsafe(32)
-        expires_at = datetime.now() + timedelta(hours=24)  # 24-hour sessions
+        expires_at = datetime.now() + timedelta(hours=24)
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -168,7 +154,7 @@ class EnhancedAuthSystem:
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT s.family_id, f.family_name, f.email, s.expires_at
+            SELECT s.family_id, f.family_name, f.email, f.location, s.expires_at
             FROM user_sessions s
             JOIN families f ON s.family_id = f.id
             WHERE s.id = ? AND s.is_active = TRUE AND s.expires_at > ?
@@ -182,155 +168,226 @@ class EnhancedAuthSystem:
                 'family_id': result[0],
                 'family_name': result[1],
                 'email': result[2],
-                'expires_at': result[3]
+                'location': result[3],
+                'expires_at': result[4]
             }
         return None
 
-    def create_email_verification_token(self, family_id: str) -> str:
-        """Create email verification token"""
-        token = secrets.token_urlsafe(32)
-        expires_at = datetime.now() + timedelta(hours=24)
-
+    def logout_session(self, session_id: str):
+        """Logout session"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         cursor.execute('''
-            INSERT INTO email_verification_tokens (family_id, token, expires_at)
-            VALUES (?, ?, ?)
-        ''', (family_id, token, expires_at))
+            UPDATE user_sessions SET is_active = FALSE WHERE id = ?
+        ''', (session_id,))
 
         conn.commit()
         conn.close()
 
-        return token
+    def cleanup_expired_sessions(self):
+        """Clean up expired sessions"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
 
-    def send_verification_email(self, email: str, family_name: str, token: str):
-        """Send email verification (you'll need to configure SMTP)"""
-        # This is a template - you'll need to configure your SMTP settings
-        verification_url = f"https://your-app-url.com/verify-email?token={token}"
+        cursor.execute('''
+            UPDATE user_sessions SET is_active = FALSE 
+            WHERE expires_at < ? AND is_active = TRUE
+        ''', (datetime.now(),))
 
-        message = f"""
-        Hi {family_name},
-
-        Welcome to CareerPath! Please verify your email address by clicking the link below:
-
-        {verification_url}
-
-        This link will expire in 24 hours.
-
-        Best regards,
-        CareerPath Team
-        """
-
-        # You'd implement actual email sending here
-        print(f"Verification email would be sent to {email}")
-        print(f"Verification URL: {verification_url}")
+        conn.commit()
+        conn.close()
 
 
-# Streamlit UI components for enhanced auth
 def create_enhanced_login_form():
-    """Enhanced login form with both email/password and access code options"""
-    st.markdown("### Login to Your Family Account")
+    """Enhanced login form"""
+    st.markdown("### 🔐 Login to Your Family Account")
 
-    login_method = st.radio("Login Method", ["Email & Password", "Access Code"])
+    tab1, tab2 = st.tabs(["📧 Email & Password", "🔑 Access Code"])
 
-    if login_method == "Email & Password":
+    with tab1:
         with st.form("email_login"):
-            email = st.text_input("Email Address")
+            email = st.text_input("Email Address", placeholder="your.email@example.com")
             password = st.text_input("Password", type="password")
-            remember_me = st.checkbox("Remember me for 30 days")
 
             col1, col2 = st.columns(2)
             with col1:
                 submitted = st.form_submit_button("Login", use_container_width=True)
             with col2:
-                forgot_password = st.form_submit_button("Forgot Password?", use_container_width=True)
+                forgot_button = st.form_submit_button("Forgot Password?", use_container_width=True)
 
             if submitted and email and password:
-                auth_system = EnhancedAuthSystem()
-                family_info = auth_system.authenticate_family(email, password)
+                auth_system = st.session_state.get('enhanced_auth')
+                if auth_system:
+                    family_info = auth_system.authenticate_family(email, password)
 
-                if family_info:
-                    if family_info['email_verified']:
-                        # Create session
+                    if family_info:
                         session_id = auth_system.create_session(family_info['id'])
                         st.session_state.family_session = session_id
                         st.session_state.authenticated_family = family_info
-                        st.success("Login successful!")
+
+                        track_login_event(family_info['id'], 'email_password')
+
+                        st.success(f"Welcome back, {family_info['family_name']}! 🎉")
                         st.rerun()
                     else:
-                        st.warning("Please verify your email address before logging in.")
-                else:
-                    st.error("Invalid email or password.")
+                        st.error("Invalid email or password.")
 
-    else:  # Access Code method (backward compatibility)
+            if forgot_button:
+                st.info("💡 Try logging in with your access code in the other tab.")
+
+    with tab2:
         with st.form("access_code_login"):
             access_code = st.text_input("Family Access Code", placeholder="e.g., SMITH123")
             submitted = st.form_submit_button("Access Family", use_container_width=True)
 
             if submitted and access_code:
-                # Your existing access code logic
-                pass
+                db = st.session_state.get('secure_db')
+                if db:
+                    family_info = db.verify_family_access(access_code.upper())
+
+                    if family_info:
+                        auth_system = st.session_state.get('enhanced_auth')
+                        if auth_system:
+                            session_id = auth_system.create_session(family_info['id'])
+                            st.session_state.family_session = session_id
+
+                        st.session_state.authenticated_family = family_info
+
+                        track_login_event(family_info['id'], 'access_code')
+
+                        st.success(f"Welcome back, {family_info['family_name']}! 🎉")
+                        st.rerun()
+                    else:
+                        st.error("Invalid access code.")
 
 
 def create_enhanced_registration_form():
-    """Enhanced registration form with email verification"""
-    st.markdown("### Create Your Family Account")
+    """Enhanced registration form"""
+    st.markdown("### 👨‍👩‍👧‍👦 Create Your Family Account")
 
-    with st.form("enhanced_registration"):
-        col1, col2 = st.columns(2)
+    method = st.radio(
+        "Registration Method",
+        ["📧 Email & Password (Recommended)", "🔑 Access Code Only"],
+        help="Email registration provides better security"
+    )
 
-        with col1:
-            family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family")
-            email = st.text_input("Email Address *", placeholder="your.email@example.com")
+    if method.startswith("📧"):
+        with st.form("enhanced_registration"):
+            st.markdown("#### Family Information")
 
-        with col2:
-            password = st.text_input("Password *", type="password",
-                                     help="Minimum 8 characters, include letters and numbers")
-            confirm_password = st.text_input("Confirm Password *", type="password")
-            location = st.text_input("Location", placeholder="e.g., Sydney, NSW")
+            col1, col2 = st.columns(2)
+            with col1:
+                family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family")
+                email = st.text_input("Email Address *", placeholder="your.email@example.com")
 
-        st.markdown("### First Student")
-        col1, col2 = st.columns(2)
+            with col2:
+                password = st.text_input("Password *", type="password")
+                confirm_password = st.text_input("Confirm Password *", type="password")
+                location = st.text_input("Location", placeholder="e.g., Sydney, NSW")
 
-        with col1:
-            student_name = st.text_input("Student Name *")
-            age = st.number_input("Age", min_value=14, max_value=20, value=16)
+            st.markdown("#### First Student")
+            student_name = st.text_input("Student Name *", placeholder="e.g., Emma")
 
-        with col2:
-            year_level = st.selectbox("Year Level", [9, 10, 11, 12], index=2)
-            interests = st.text_area("Interests", placeholder="e.g., history, science, writing")
+            col1, col2 = st.columns(2)
+            with col1:
+                age = st.number_input("Age", min_value=14, max_value=20, value=16)
+                year_level = st.selectbox("Year Level", [9, 10, 11, 12], index=2)
 
-        terms_accepted = st.checkbox("I agree to the Terms of Service and Privacy Policy *")
+            with col2:
+                timeline = st.selectbox("University Timeline",
+                                        ["Applying in 2+ years", "Applying in 12 months", "Applying now"])
+                location_pref = st.text_input("Study Location Preference", placeholder="e.g., NSW/ACT")
 
-        submitted = st.form_submit_button("Create Account", use_container_width=True)
+            interests = st.text_area("Interests", placeholder="e.g., psychology, science, writing")
+            terms = st.checkbox("I agree to the Terms of Service *")
 
-        if submitted:
-            # Validation
-            errors = []
+            submitted = st.form_submit_button("Create Account", use_container_width=True)
 
-            if not all([family_name, email, password, confirm_password, student_name]):
-                errors.append("Please fill in all required fields.")
+            if submitted:
+                errors = []
 
-            if password != confirm_password:
-                errors.append("Passwords do not match.")
+                if not all([family_name, email, password, student_name]):
+                    errors.append("Please fill in all required fields.")
 
-            if len(password) < 8:
-                errors.append("Password must be at least 8 characters long.")
+                if password != confirm_password:
+                    errors.append("Passwords do not match.")
 
-            if not terms_accepted:
-                errors.append("Please accept the Terms of Service.")
+                if len(password) < 8:
+                    errors.append("Password must be at least 8 characters.")
 
-            if errors:
-                for error in errors:
-                    st.error(error)
-            else:
-                # Create account
-                auth_system = EnhancedAuthSystem()
-                result = auth_system.register_family_with_password(
-                    family_name, email, password, location
-                )
+                if not terms:
+                    errors.append("Please accept the Terms of Service.")
 
-                if result['status'] == 'success':
-                    st.success(result['message'])
-                    st.info("A verification link has been sent to your email address.")
+                if errors:
+                    for error in errors:
+                        st.error(error)
+                else:
+                    try:
+                        auth_system = st.session_state.get('enhanced_auth')
+                        if auth_system:
+                            result = auth_system.register_family_with_password(
+                                family_name, email, password, location
+                            )
+
+                            if result['status'] == 'success':
+                                # Add student
+                                db = st.session_state.get('secure_db')
+                                if db:
+                                    student_data = {
+                                        'name': student_name,
+                                        'age': age,
+                                        'year_level': year_level,
+                                        'interests': [i.strip() for i in interests.split(',') if i.strip()],
+                                        'preferences': [],
+                                        'timeline': timeline,
+                                        'location_preference': location_pref,
+                                        'career_considerations': [],
+                                        'goals': []
+                                    }
+                                    db.add_student(result['family_id'], student_data)
+
+                                st.success("🎉 Account created successfully!")
+
+                                st.info(f"""
+                                **Your Login Details:**
+                                - Email: {email}
+                                - Backup Access Code: {result['access_code']}
+
+                                Save these details securely!
+                                """)
+
+                                if st.button("Continue to Dashboard", type="primary"):
+                                    session_id = auth_system.create_session(result['family_id'])
+                                    st.session_state.family_session = session_id
+                                    st.session_state.authenticated_family = {
+                                        'id': result['family_id'],
+                                        'family_name': family_name,
+                                        'email': email,
+                                        'location': location,
+                                        'access_code': result['access_code']
+                                    }
+                                    if 'show_registration' in st.session_state:
+                                        del st.session_state.show_registration
+                                    st.rerun()
+                            else:
+                                st.error("Registration failed. Please try again.")
+                    except Exception as e:
+                        st.error(f"Registration error: {str(e)}")
+
+
+def track_login_event(family_id: str, method: str):
+    """Track login events"""
+    try:
+        conn = sqlite3.connect("community_career_explorer.db")
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO login_events (family_id, login_method)
+            VALUES (?, ?)
+        ''', (family_id, method))
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Login tracking error: {e}")
