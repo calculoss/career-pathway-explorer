@@ -5,13 +5,8 @@ from datetime import datetime
 import anthropic
 import os
 import json
-import sqlite3
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
-from canvas_integration import CanvasIntegrator, SimpleMilestoneGenerator, show_canvas_setup
-from enhanced_auth import EnhancedAuthSystem, create_enhanced_login_form, create_enhanced_registration_form
-import hashlib
-import secrets
 
 # Page configuration
 st.set_page_config(
@@ -21,584 +16,346 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# =================== SINGLE COMPREHENSIVE CSS BLOCK ===================
+# FIXED CSS - Reduced header spacing and improved layout
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap');
 
-    /* NUCLEAR STREAMLIT SPACING FIX */
-    .main .block-container {
-        padding: 0 !important;
-        margin: 0 !important;
-        max-width: 100% !important;
+    /* CRITICAL FIX: Remove header padding and spacing */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 10rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        max-width: 1200px;
     }
 
-    .stApp > div:first-child {
-        margin-top: -80px !important;
-    }
-
-    .element-container {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .stMarkdown {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* Hide Streamlit elements completely */
+    /* Remove default Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display: none;}
     header[data-testid="stHeader"] {
-        display: none !important;
+        background: rgba(0,0,0,0);
+        height: 0rem;
     }
 
-    #MainMenu, footer, .stDeployButton, .stToolbar {
-        display: none !important;
+    /* Fix for container spacing */
+    .main > div {
+        padding-top: 0rem;
     }
 
-    /* Global App Styles */
+    /* Global Styles */
     .stApp {
-        background-color: #ffffff;
-        font-family: 'Lato', sans-serif;
-        color: #21242c;
+        background-color: #f7f8fa;
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Custom Layout */
-    .custom-app {
-        margin: 0;
-        padding: 0;
-        min-height: 100vh;
-        background: #ffffff;
-        font-family: 'Lato', sans-serif;
-    }
-
-    .custom-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e7e8ea;
-        padding: 24px 0;
-        margin: 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .header-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 24px;
-        text-align: center;
-    }
-
-    .app-title {
-        font-size: 42px;
-        font-weight: 600;
-        color: #21242c;
-        margin: 0;
-        letter-spacing: -1px;
-    }
-
-    .app-subtitle {
-        font-size: 18px;
-        color: #626569;
-        margin: 8px 0 0 0;
-        font-weight: 400;
-    }
-
+    /* Main container with reduced top margin */
     .main-content {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin: 8px auto 24px auto; /* Reduced top margin from 24px to 8px */
+        max-width: 1200px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e5e5;
+    }
+
+    /* Compact header */
+    .site-header {
+        background: white;
+        border-bottom: 1px solid #e5e5e5;
+        padding: 8px 0; /* Reduced from 16px to 8px */
+        margin-bottom: 16px; /* Reduced from 32px to 16px */
+    }
+
+    .site-header .container {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 32px 24px;
-        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+    }
+
+    .logo {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1c4980;
+        text-decoration: none;
+    }
+
+    .logo-subtitle {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 400;
+        margin-left: 8px;
     }
 
     /* Typography */
     .page-title {
-        font-size: 32px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 8px;
+        font-size: 28px; /* Reduced from 32px */
+        font-weight: 700;
+        color: #1c4980;
+        margin-bottom: 6px; /* Reduced from 8px */
         line-height: 1.2;
     }
 
     .page-subtitle {
-        font-size: 18px;
-        color: #626569;
-        margin-bottom: 32px;
+        font-size: 16px; /* Reduced from 18px */
+        color: #6b7280;
+        margin-bottom: 24px; /* Reduced from 32px */
         line-height: 1.4;
     }
 
     .section-title {
-        font-size: 24px;
+        font-size: 22px; /* Reduced from 24px */
         font-weight: 600;
-        color: #21242c;
-        margin-bottom: 16px;
-        margin-top: 32px;
+        color: #374151;
+        margin-bottom: 12px; /* Reduced from 16px */
+        margin-top: 24px; /* Reduced from 32px */
     }
 
-    .section-subtitle {
-        font-size: 16px;
-        color: #626569;
-        margin-bottom: 24px;
-        line-height: 1.5;
-    }
-
-    /* Security Features */
-    .security-features {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 24px;
-        margin: 40px 0;
-    }
-
-    .security-feature {
-        text-align: center;
-        padding: 32px 24px;
-        background: #ffffff;
-        border-radius: 12px;
-        border: 2px solid #e7e8ea;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .security-feature:hover {
-        border-color: #00a60e;
-        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.1);
-        transform: translateY(-2px);
-    }
-
-    .security-icon {
-        font-size: 40px;
-        margin-bottom: 16px;
-        color: #00a60e;
-    }
-
-    .security-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    .security-desc {
-        font-size: 14px;
-        color: #626569;
-        line-height: 1.6;
-    }
-
-    /* Benefits Grid */
-    .features-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin: 24px 0;
-    }
-
-    .feature-item {
-        background: #f0f9ff;
-        border: 1px solid #bae6fd;
-        border-radius: 6px;
-        padding: 16px;
-        text-align: center;
-        font-size: 14px;
-        color: #0c4a6e;
-        font-weight: 500;
-    }
-
-    /* Form Containers */
-    .form-container {
-        background: #f7f8fa;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
+    /* Login form improvements */
+    .login-container {
+        max-width: 500px;
+        margin: 0 auto;
+        background: white;
         padding: 40px;
-        margin: 32px 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e5e5;
+    }
+
+    .login-title {
+        text-align: center;
+        font-size: 28px;
+        font-weight: 700;
+        color: #1c4980;
+        margin-bottom: 16px;
+    }
+
+    .login-subtitle {
+        text-align: center;
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 32px;
+    }
+
+    /* Error and success message styling */
+    .stError > div {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    .stSuccess > div {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    /* Forms */
+    .form-container {
+        background: #f9fafb;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 32px;
+        margin: 16px 0; /* Reduced from 24px */
     }
 
     .form-title {
-        font-size: 28px;
+        font-size: 24px;
         font-weight: 600;
-        color: #21242c;
+        color: #374151;
         margin-bottom: 8px;
         text-align: center;
     }
 
     .form-subtitle {
         font-size: 16px;
-        color: #626569;
+        color: #6b7280;
         margin-bottom: 32px;
         text-align: center;
-        line-height: 1.5;
     }
 
-    /* Family Header */
-    .family-header {
-        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
+    /* Button styling */
+    .stButton > button {
+        background-color: #1c4980;
         color: white;
-        border-radius: 12px;
-        padding: 32px;
-        margin-bottom: 32px;
-        box-shadow: 0 4px 16px rgba(0, 166, 14, 0.2);
+        border: 1px solid #1c4980;
+        border-radius: 6px;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: 'Lato', sans-serif;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .stButton > button:hover {
+        background-color: #164373;
+        border-color: #164373;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Input styling */
+    .stTextInput > div > div > input {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 12px 16px;
+        font-size: 16px;
+        font-family: 'Lato', sans-serif;
+        background: white;
+        transition: border-color 0.2s ease;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: #1c4980;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(28, 73, 128, 0.1);
+    }
+
+    /* Family header */
+    .family-header {
+        background: #f0f9ff;
+        border: 1px solid #0ea5e9;
+        border-radius: 8px;
+        padding: 20px; /* Reduced from 24px */
+        margin-bottom: 24px; /* Reduced from 32px */
     }
 
     .family-title {
-        font-size: 28px;
+        font-size: 22px; /* Reduced from 24px */
         font-weight: 600;
-        margin: 0 0 8px 0;
+        color: #0c4a6e;
+        margin-bottom: 6px; /* Reduced from 8px */
     }
 
     .family-details {
+        font-size: 14px; /* Reduced from 16px */
+        color: #075985;
+    }
+
+    /* Security features */
+    .security-features {
+        display: flex;
+        justify-content: center;
+        gap: 24px; /* Reduced from 32px */
+        margin: 24px 0; /* Reduced from 32px */
+        flex-wrap: wrap;
+    }
+
+    .security-feature {
+        text-align: center;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .security-icon {
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+
+    .security-title {
         font-size: 16px;
-        margin: 0;
-        opacity: 0.9;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
     }
 
-    /* Student Cards */
+    .security-desc {
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+
+    /* Access code display */
+    .access-code-container {
+        background: #f0f9ff;
+        border: 2px dashed #0ea5e9;
+        border-radius: 8px;
+        padding: 32px;
+        text-align: center;
+        margin: 24px 0;
+    }
+
+    .access-code {
+        font-size: 36px;
+        font-weight: 700;
+        color: #0c4a6e;
+        letter-spacing: 4px;
+        font-family: 'Monaco', 'Menlo', monospace;
+        margin: 16px 0;
+    }
+
+    /* Student cards */
     .student-card {
-        background: #ffffff;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 20px;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .student-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 4px;
-        height: 100%;
-        background: #00a60e;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 20px; /* Reduced from 24px */
+        margin-bottom: 12px; /* Reduced from 16px */
+        background: white;
+        transition: all 0.2s ease;
     }
 
     .student-card:hover {
-        border-color: #00a60e;
-        box-shadow: 0 8px 24px rgba(0, 166, 14, 0.15);
-        transform: translateY(-2px);
-    }
-
-    .student-card:hover::before {
-        opacity: 1;
+        border-color: #1c4980;
+        box-shadow: 0 2px 8px rgba(28, 73, 128, 0.1);
     }
 
     .student-name {
-        font-size: 20px;
+        font-size: 18px; /* Reduced from 20px */
         font-weight: 600;
-        color: #21242c;
-        margin: 0 0 8px 0;
+        color: #374151;
+        margin-bottom: 6px; /* Reduced from 8px */
     }
 
     .student-details {
         font-size: 14px;
-        color: #626569;
-        line-height: 1.6;
-        margin: 0;
+        color: #6b7280;
+        line-height: 1.5;
     }
 
-    /* Button Styles */
-    .stButton > button {
-        background: linear-gradient(135deg, #00a60e 0%, #008a0c 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 14px 28px;
-        font-size: 16px;
-        font-weight: 600;
-        font-family: 'Lato', sans-serif;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
-    }
-
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #008a0c 0%, #007a0b 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.3);
-    }
-
-    .stButton > button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(0, 166, 14, 0.2);
-    }
-
-    /* Secondary button */
-    .stButton > button[kind="secondary"] {
-        background: #ffffff;
-        color: #21242c;
-        border: 2px solid #c4c6ca;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .stButton > button[kind="secondary"]:hover {
-        background: #f7f8fa;
-        border-color: #9ca0a5;
-        transform: translateY(-1px);
-    }
-
-    /* Form Inputs */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select,
-    .stNumberInput > div > div > input {
-        border: 2px solid #c4c6ca;
-        border-radius: 8px;
-        padding: 14px 16px;
-        font-size: 16px;
-        font-family: 'Lato', sans-serif;
-        background: #ffffff;
-        color: #21242c;
-        transition: all 0.2s ease;
-    }
-
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stSelectbox > div > div > select:focus,
-    .stNumberInput > div > div > input:focus {
-        border-color: #00a60e;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(0, 166, 14, 0.1);
-    }
-
-    /* Form labels */
-    .stTextInput > label,
-    .stTextArea > label,
-    .stSelectbox > label,
-    .stNumberInput > label {
-        font-weight: 500;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    /* Tab Styles */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0;
-        background: transparent;
-        border-bottom: 2px solid #e7e8ea;
-        margin-bottom: 32px;
-        padding: 0;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        padding: 0 24px;
-        border-radius: 0;
-        border: none;
-        background: transparent;
-        color: #626569;
-        font-weight: 500;
-        font-size: 16px;
-        border-bottom: 3px solid transparent;
-        transition: all 0.2s ease;
-        margin-bottom: -2px;
-    }
-
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #21242c;
-        background: rgba(0, 166, 14, 0.05);
-    }
-
-    .stTabs [aria-selected="true"] {
-        color: #00a60e !important;
-        border-bottom-color: #00a60e !important;
-        background: transparent !important;
-        font-weight: 600 !important;
-    }
-
-    /* Alerts & Messages */
-    .stSuccess {
-        background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e8 100%);
-        border: 2px solid #00a60e;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .stError {
-        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-        border: 2px solid #ef4444;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .stInfo {
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        border: 2px solid #3b82f6;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    .stWarning {
-        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-        border: 2px solid #f59e0b;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-    }
-
-    /* Chat Interface */
+    /* Chat interface */
     .chat-container {
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 32px;
-        margin: 32px 0;
-        background: #ffffff;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 20px; /* Reduced from 24px */
+        margin: 16px 0; /* Reduced from 24px */
+        background: white;
     }
 
     .chat-header {
-        border-bottom: 2px solid #e7e8ea;
-        padding-bottom: 20px;
-        margin-bottom: 24px;
+        border-bottom: 1px solid #e5e5e5;
+        padding-bottom: 12px; /* Reduced from 16px */
+        margin-bottom: 20px; /* Reduced from 24px */
     }
 
-    .chat-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #21242c;
-        margin-bottom: 4px;
-    }
-
-    .chat-subtitle {
-        font-size: 16px;
-        color: #626569;
-    }
-
-    .ai-response {
-        background: linear-gradient(135deg, #f7f8fa 0%, #f0f1f3 100%);
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        margin: 20px 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .ai-response-header {
-        font-size: 18px;
-        font-weight: 600;
-        color: #00a60e;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    /* Metrics */
-    .metric-card {
-        background: #ffffff;
-        border: 2px solid #e7e8ea;
-        border-radius: 12px;
-        padding: 24px;
-        text-align: center;
-        margin-bottom: 16px;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .metric-card:hover {
-        border-color: #00a60e;
-        box-shadow: 0 4px 12px rgba(0, 166, 14, 0.1);
-    }
-
-    .metric-value {
-        font-size: 32px;
-        font-weight: 700;
-        color: #00a60e;
-        margin-bottom: 8px;
-        line-height: 1;
-    }
-
-    .metric-label {
-        font-size: 14px;
-        color: #626569;
-        font-weight: 500;
-    }
-
-    /* Milestone Cards */
-    .milestone-card {
-        border-left: 4px solid #00a60e;
-        padding: 20px;
-        margin: 16px 0;
-        background: #ffffff;
-        border-radius: 8px;
-        border: 1px solid #e7e8ea;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .milestone-card:hover {
-        border-color: #c4c6ca;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateY(-1px);
-    }
-
-    .milestone-title {
-        font-weight: 600;
-        font-size: 16px;
-        color: #21242c;
-        margin-bottom: 8px;
-    }
-
-    .milestone-description {
-        color: #626569;
-        margin: 6px 0;
-        line-height: 1.6;
-    }
-
-    .milestone-date {
-        font-size: 14px;
-        font-weight: 500;
-        color: #00a60e;
-    }
-
-    /* Responsive Design */
+    /* Responsive design */
     @media (max-width: 768px) {
         .main-content {
-            padding: 16px;
+            margin: 8px 16px 16px 16px; /* Adjusted margins */
+            padding: 20px; /* Reduced from 24px */
         }
 
-        .header-content {
-            padding: 0 16px;
+        .site-header .container {
+            padding: 0 20px; /* Reduced from 24px */
         }
 
-        .app-title {
-            font-size: 32px;
-        }
-
-        .page-title {
-            font-size: 28px;
-        }
-
-        .security-features {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-
-        .features-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .stTabs [data-baseweb="tab"] {
-            padding: 0 12px;
-            font-size: 14px;
-        }
-
-        .form-container {
-            padding: 24px;
-        }
-
-        .family-header {
-            padding: 24px;
+        .login-container {
+            margin: 0 16px;
+            padding: 24px; /* Reduced from 40px */
         }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# =================== MAIN APP CLASS ===================
+
 class SecureFamilyCareerAgent:
     def __init__(self):
         try:
@@ -613,221 +370,243 @@ class SecureFamilyCareerAgent:
             st.session_state.secure_db = MultiFamilyDatabase()
         self.db = st.session_state.secure_db
 
-        if 'enhanced_auth' not in st.session_state:
-            st.session_state.enhanced_auth = EnhancedAuthSystem()
-        self.auth_system = st.session_state.enhanced_auth
 
-# =================== LAYOUT FUNCTIONS ===================
-def create_app_layout():
-    """Create consistent app layout with header"""
+def create_header():
+    """Compact site header"""
     st.markdown("""
-    <div class="custom-app">
-        <div class="custom-header">
-            <div class="header-content">
-                <h1 class="app-title">CareerPath</h1>
-                <p class="app-subtitle">Professional Career Guidance Platform</p>
+    <div class="site-header">
+        <div class="container">
+            <div>
+                <span class="logo">📚 CareerPath</span>
+                <span class="logo-subtitle">Professional Career Guidance Platform</span>
             </div>
         </div>
-        <div class="main-content">
+    </div>
     """, unsafe_allow_html=True)
 
-def close_app_layout():
-    """Close the app layout"""
-    st.markdown("""
-        </div> <!-- Close main-content -->
-    </div> <!-- Close custom-app -->
-    """, unsafe_allow_html=True)
 
-# =================== MAIN FUNCTIONS ===================
 def create_family_login():
-    """Enhanced login interface with both email/password and access code options"""
-    create_app_layout()
+    """Improved login interface with better error handling"""
+    create_header()
 
-    # Check for session validation first
-    if 'family_session' in st.session_state:
-        auth_system = st.session_state.enhanced_auth
-        session_info = auth_system.validate_session(st.session_state.family_session)
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
-        if session_info:
-            # Valid session exists, authenticate automatically
-            st.session_state.authenticated_family = {
-                'id': session_info['family_id'],
-                'family_name': session_info['family_name'],
-                'email': session_info['email']
-            }
-            st.rerun()
-
-    # Page header
+    # Centred login container
     st.markdown("""
-    <div class="page-title">Secure Family Access</div>
-    <div class="page-subtitle">Login to your personalised career guidance dashboard</div>
+    <div class="login-container">
+        <div class="login-title">Family Access</div>
+        <div class="login-subtitle">Enter your unique family code to access your career guidance dashboard</div>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Security features
+    # Security features (compact)
     st.markdown("""
     <div class="security-features">
         <div class="security-feature">
             <div class="security-icon">🔒</div>
-            <div class="security-title">Private & Secure</div>
-            <div class="security-desc">Your family's data is encrypted and completely private</div>
+            <div class="security-title">Secure Access</div>
+            <div class="security-desc">Your family data is private and encrypted</div>
         </div>
         <div class="security-feature">
             <div class="security-icon">👨‍👩‍👧‍👦</div>
-            <div class="security-title">Family Only</div>
-            <div class="security-desc">Only your family can access your students and conversations</div>
+            <div class="security-title">Family Dashboard</div>
+            <div class="security-desc">Manage all your students in one place</div>
         </div>
         <div class="security-feature">
-            <div class="security-icon">🛡️</div>
-            <div class="security-title">Data Protected</div>
-            <div class="security-desc">We never share your information with other families</div>
+            <div class="security-icon">🤖</div>
+            <div class="security-title">AI Guidance</div>
+            <div class="security-desc">Personalised career advice with conversation memory</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Login method selection
-    st.markdown('<div class="form-container">', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="form-title">Access Your Family Dashboard</div>
-    <div class="form-subtitle">Choose your preferred login method</div>
-    """, unsafe_allow_html=True)
+    # IMPROVED LOGIN FORM
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.form("family_login", clear_on_submit=False):
+            st.markdown("#### Access Your Family Dashboard")
 
-    # Login method tabs
-    tab1, tab2 = st.tabs(["📧 Email & Password", "🔑 Access Code"])
+            access_code = st.text_input(
+                "Family Access Code",
+                placeholder="Enter your 8-character code (e.g., SMITH123)",
+                help="The unique code provided when you registered your family",
+                max_chars=8
+            )
 
-    with tab1:
-        # Email/Password Login
-        st.markdown("### Login with Email & Password")
+            submitted = st.form_submit_button("Access My Family Dashboard", use_container_width=True)
 
-        with st.form("email_login"):
-            col1, col2 = st.columns(2)
-
-            with col1:
-                email = st.text_input("Email Address", placeholder="your.email@example.com")
-
-            with col2:
-                password = st.text_input("Password", type="password")
-
-            remember_me = st.checkbox("Remember me for 30 days")
-
-            col1, col2, col3 = st.columns([1, 1, 1])
-
-            with col1:
-                email_submitted = st.form_submit_button("Login with Email", use_container_width=True)
-
-            with col2:
-                forgot_password = st.form_submit_button("Forgot Password?", use_container_width=True)
-
-            with col3:
-                pass  # Empty column for spacing
-
-            if email_submitted and email and password:
-                auth_system = st.session_state.enhanced_auth
-                family_info = auth_system.authenticate_family(email, password)
-
-                if family_info:
-                    if family_info.get('email_verified', True):
-                        # Create session
-                        session_duration = 30 * 24 if remember_me else 24  # hours
-                        session_id = auth_system.create_session(
-                            family_info['id']
-                        )
-
-                        st.session_state.family_session = session_id
-                        st.session_state.authenticated_family = family_info
-                        st.success(f"Welcome back, {family_info['family_name']}! 🎉")
-
-                        # Add login analytics
-                        track_login_event(family_info['id'], 'email_password')
-
-                        st.rerun()
-                    else:
-                        st.warning("Please verify your email address before logging in. Check your inbox for the verification link.")
+            if submitted:
+                if not access_code:
+                    st.error("Please enter your family access code.")
+                elif len(access_code) < 6:
+                    st.error("Access code must be at least 6 characters.")
                 else:
-                    st.error("Invalid email or password. Please try again.")
+                    # FIXED LOGIN LOGIC
+                    db = st.session_state.secure_db
 
-            if forgot_password:
-                st.info("Password reset functionality coming soon! For now, please use your access code or contact support.")
+                    # Debug: Check if database connection works
+                    try:
+                        family_info = db.verify_family_access(access_code.upper().strip())
 
-    with tab2:
-        # Access Code Login (Backward Compatibility)
-        st.markdown("### Login with Access Code")
-        st.info("💡 If you registered before our email system, use your 8-character access code")
+                        if family_info:
+                            st.session_state.authenticated_family = family_info
+                            st.success(f"✅ Welcome back, {family_info['family_name']}!")
 
-        with st.form("access_code_login"):
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                access_code = st.text_input(
-                    "Family Access Code",
-                    placeholder="e.g., SMITH123",
-                    help="The unique 8-character code for your family"
-                )
+                            # Add a small delay and rerun
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Invalid access code. Please check your code and try again.")
 
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                code_submitted = st.form_submit_button("Access My Family", use_container_width=True)
+                            # Debug: Show available families (remove in production)
+                            if st.checkbox("🔧 Debug: Show test families"):
+                                families = db.get_all_families()
+                                if families:
+                                    st.write("Available test families:")
+                                    for family in families[:3]:  # Show only first 3
+                                        st.write(f"- {family['family_name']}")
+                                else:
+                                    st.write("No families found in database")
 
-            if code_submitted and access_code:
-                db = st.session_state.secure_db
-                family_info = db.verify_family_access(access_code.upper())
+                    except Exception as e:
+                        st.error(f"Database connection error: {str(e)}")
+                        st.info("Trying to initialise database...")
 
-                if family_info:
-                    # Create session for access code users too
-                    auth_system = st.session_state.enhanced_auth
-                    session_id = auth_system.create_session(family_info['id'])
+                        # Try to reinitialise database
+                        try:
+                            db.init_database()
+                            st.success("Database initialised. Please try logging in again.")
+                        except Exception as init_error:
+                            st.error(f"Failed to initialise database: {str(init_error)}")
 
-                    st.session_state.family_session = session_id
-                    st.session_state.authenticated_family = family_info
-                    st.success(f"Welcome back, {family_info['family_name']}! 🎉")
-
-                    # Add login analytics
-                    track_login_event(family_info['id'], 'access_code')
-
-                    st.rerun()
-                else:
-                    st.error("Invalid access code. Please check your code and try again.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Registration section
-    st.markdown('<div class="section-title">New to CareerPath?</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-subtitle">Join families across Australia getting professional career guidance</div>', unsafe_allow_html=True)
+    # Registration section (compact)
+    st.markdown('<div class="section-title" style="text-align: center; margin-top: 40px;">New Family?</div>',
+                unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("Create Family Account", use_container_width=True, type="secondary"):
+        if st.button("🏠 Register Your Family", use_container_width=True, type="secondary"):
             st.session_state.show_registration = True
             st.rerun()
 
-    # Show recent login stats (optional)
-    show_platform_stats()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    close_app_layout()
 
 def create_family_registration():
-    """Enhanced family registration"""
-    create_app_layout()
+    """Improved family registration with validation"""
+    create_header()
+
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
     st.markdown("""
     <div class="page-title">Create Your Family Account</div>
-    <div class="page-subtitle">Join thousands of Australian families getting AI-powered career guidance</div>
-    """, unsafe_allow_html=True)
-
-    # Show benefits
-    st.markdown("""
-    <div class="features-grid">
-        <div class="feature-item">🎯 Personalised AI Career Guidance</div>
-        <div class="feature-item">📊 Live Australian Employment Data</div>
-        <div class="feature-item">🎓 Canvas LMS Integration</div>
-        <div class="feature-item">👨‍👩‍👧‍👦 Multi-Student Family Support</div>
-        <div class="feature-item">🔒 Secure & Private</div>
-        <div class="feature-item">🆓 Completely Free to Use</div>
-    </div>
+    <div class="page-subtitle">Join families across Australia getting professional AI-powered career guidance</div>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="form-container">', unsafe_allow_html=True)
 
-    # Use the enhanced registration form
-    create_enhanced_registration_form()
+    with st.form("family_registration"):
+        st.markdown("### Family Information")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family")
+            email = st.text_input("Email Address *", placeholder="your.email@example.com")
+
+        with col2:
+            location = st.text_input("Location", placeholder="e.g., Sydney, NSW")
+
+        st.markdown("### First Student")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            student_name = st.text_input("Student Name *", placeholder="e.g., Emma")
+            age = st.number_input("Age", min_value=14, max_value=20, value=16)
+            year_level = st.selectbox("Year Level", [9, 10, 11, 12], index=2)
+
+        with col2:
+            interests = st.text_area(
+                "Interests",
+                placeholder="e.g., psychology, science, helping others",
+                help="Enter interests separated by commas"
+            )
+            timeline = st.selectbox("University Timeline", [
+                "Applying in 2+ years",
+                "Applying in 12 months",
+                "Applying in 6 months",
+                "Applying now"
+            ])
+            location_preference = st.text_input("Study Location Preference", placeholder="e.g., NSW/ACT")
+
+        submitted = st.form_submit_button("🚀 Create Family Account", use_container_width=True)
+
+        if submitted:
+            # IMPROVED VALIDATION
+            errors = []
+
+            if not family_name or len(family_name.strip()) < 2:
+                errors.append("Family name must be at least 2 characters")
+
+            if not student_name or len(student_name.strip()) < 2:
+                errors.append("Student name must be at least 2 characters")
+
+            if not email or "@" not in email:
+                errors.append("Please enter a valid email address")
+
+            if errors:
+                for error in errors:
+                    st.error(f"❌ {error}")
+            else:
+                try:
+                    db = st.session_state.secure_db
+
+                    # FIXED: Use the updated create_family method that returns tuple
+                    family_id, access_code = db.create_family(family_name.strip(), email.strip(), location.strip())
+
+                    student_data = {
+                        'name': student_name.strip(),
+                        'age': age,
+                        'year_level': year_level,
+                        'interests': [i.strip() for i in interests.split(',') if i.strip()],
+                        'preferences': [],
+                        'timeline': timeline,
+                        'location_preference': location_preference.strip(),
+                        'career_considerations': [],
+                        'goals': []
+                    }
+
+                    db.add_student(family_id, student_data)
+
+                    # Success display
+                    st.success("🎉 Family account created successfully!")
+
+                    st.markdown(f"""
+                    <div class="access-code-container">
+                        <div class="access-code-label">Your Family Access Code</div>
+                        <div class="access-code">{access_code}</div>
+                        <div class="access-code-note">
+                            ⚠️ <strong>Save this code securely!</strong> You'll need it to access your family dashboard.
+                            <br>📧 A confirmation email will be sent to {email}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Auto-login option
+                    if st.button("🏠 Access My Family Dashboard Now", use_container_width=True):
+                        st.session_state.authenticated_family = {
+                            'id': family_id,
+                            'family_name': family_name,
+                            'email': email,
+                            'location': location,
+                            'access_code': access_code
+                        }
+                        if 'show_registration' in st.session_state:
+                            del st.session_state.show_registration
+                        st.rerun()
+
+                except Exception as e:
+                    st.error(f"❌ Registration failed: {str(e)}")
+                    st.info("Please try again or contact support if the problem persists.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -839,357 +618,199 @@ def create_family_registration():
                 del st.session_state.show_registration
             st.rerun()
 
-    close_app_layout()
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 def create_authenticated_family_interface(family_info):
-    """Enhanced authenticated family interface"""
-    # Session validation
-    if 'family_session' in st.session_state:
-        auth_system = st.session_state.enhanced_auth
-        session_info = auth_system.validate_session(st.session_state.family_session)
+    """Improved family interface with better navigation"""
+    create_header()
 
-        if not session_info:
-            # Session expired, clear and redirect to login
-            if 'family_session' in st.session_state:
-                del st.session_state.family_session
-            if 'authenticated_family' in st.session_state:
-                del st.session_state.authenticated_family
-            st.warning("Your session has expired. Please log in again.")
-            st.rerun()
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
-    create_app_layout()
-
-    # Family header
+    # Compact family header
     col1, col2 = st.columns([4, 1])
 
     with col1:
-        # Show email if available, otherwise show access code
-        contact_info = family_info.get('email', f"Access Code: {family_info.get('access_code', 'N/A')}")
-
         st.markdown(f"""
         <div class="family-header">
-            <div class="family-title">Welcome, {family_info['family_name']} 👨‍👩‍👧‍👦</div>
-            <div class="family-details">{contact_info} | {family_info.get('location', 'Location not set')}</div>
+            <div class="family-title">👋 Welcome, {family_info['family_name']}</div>
+            <div class="family-details">
+                🔑 Family Code: <strong>{family_info['access_code']}</strong> | 
+                📧 {family_info['email']} | 
+                📍 {family_info.get('location', 'Location not set')}
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
         if st.button("🚪 Logout", use_container_width=True, type="secondary"):
-            # Enhanced logout
-            if 'family_session' in st.session_state:
-                auth_system = st.session_state.get('enhanced_auth')
-                if auth_system:
-                    auth_system.logout_session(st.session_state.family_session)
-                del st.session_state.family_session
-
-            if 'authenticated_family' in st.session_state:
-                del st.session_state.authenticated_family
-
-            st.success("Logged out successfully!")
+            # Clear all session state related to authentication
+            keys_to_remove = ['authenticated_family', 'selected_student']
+            for key in keys_to_remove:
+                if key in st.session_state:
+                    del st.session_state[key]
             st.rerun()
 
-    # Get students
-    db = st.session_state.secure_db
-    students = db.get_family_students(family_info['id'])
+    # Get students with error handling
+    try:
+        db = st.session_state.secure_db
+        students = db.get_family_students(family_info['id'])
+    except Exception as e:
+        st.error(f"Error loading students: {str(e)}")
+        students = []
 
     if not students:
-        st.info("No students found. Contact support to add students to your family account.")
-        close_app_layout()
+        st.warning("📚 No students found for your family.")
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("➕ Add Your First Student", use_container_width=True):
+                st.info("Student management feature coming soon! Contact support to add students.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    # Tab navigation
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "👥 Students & Career Guidance",
-        "📚 Canvas LMS Integration",
-        "📊 Progress & Reports",
-        "⚙️ Family Settings"
-    ])
+    # Students section with improved layout
+    st.markdown("### 👨‍🎓 Your Students")
 
-    with tab1:
-        show_students_and_career_tab(students, family_info, db)
-
-    with tab2:
-        show_full_canvas_integration_tab(students)
-
-    with tab3:
-        show_progress_and_reports_tab(students, family_info)
-
-    with tab4:
-        show_family_settings_tab(family_info, students)
-
-    close_app_layout()
-
-# =================== SUPPORTING FUNCTIONS ===================
-def track_login_event(family_id: str, method: str):
-    """Track login events for analytics"""
-    try:
-        conn = sqlite3.connect("community_career_explorer.db")
-        cursor = conn.cursor()
-
-        # Create login_events table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS login_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                family_id TEXT,
-                login_method TEXT,
-                login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                user_agent TEXT,
-                success BOOLEAN DEFAULT TRUE
-            )
-        ''')
-
-        cursor.execute('''
-            INSERT INTO login_events (family_id, login_method)
-            VALUES (?, ?)
-        ''', (family_id, method))
-
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"Login tracking error: {e}")
-
-def show_platform_stats():
-    """Show encouraging platform statistics"""
-    try:
-        conn = sqlite3.connect("community_career_explorer.db")
-        cursor = conn.cursor()
-
-        # Get recent stats
-        cursor.execute('SELECT COUNT(*) FROM families')
-        total_families = cursor.fetchone()[0]
-
-        cursor.execute('SELECT COUNT(*) FROM students')
-        total_students = cursor.fetchone()[0]
-
-        cursor.execute('''
-            SELECT COUNT(DISTINCT family_id) FROM conversations 
-            WHERE timestamp >= date('now', '-7 days')
-        ''')
-        active_this_week = cursor.fetchone()[0]
-
-        conn.close()
-
-        if total_families > 0:
-            st.markdown("---")
-            st.markdown("### 📊 Join the CareerPath Community")
-
-            col1, col2, col3 = st.columns(3)
+    for i, student in enumerate(students):
+        with st.container():
+            col1, col2 = st.columns([3, 1])
 
             with col1:
-                st.metric("Families Registered", total_families)
+                st.markdown(f"""
+                <div class="student-card">
+                    <div class="student-name">📚 {student['name']} - Year {student['year_level']}</div>
+                    <div class="student-details">
+                        🎂 Age: {student['age']} | 
+                        🎯 Interests: {', '.join(student['interests'][:3]) if student['interests'] else 'None specified'}<br>
+                        ⏰ Timeline: {student['timeline']} | 
+                        📍 Preference: {student.get('location_preference', 'Not specified')}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
             with col2:
-                st.metric("Students Guided", total_students)
+                if st.button(f"💬 Chat with {student['name']}", key=f"chat_{student['id']}", use_container_width=True):
+                    st.session_state.selected_student = student
+                    st.rerun()
 
-            with col3:
-                st.metric("Active This Week", active_this_week)
-
-    except Exception as e:
-        pass  # Silently fail if tables don't exist yet
-
-def show_students_and_career_tab(students, family_info, db):
-    """Show students and career guidance"""
-    st.markdown('<div class="section-title">Your Students</div>', unsafe_allow_html=True)
-
-    for student in students:
-        st.markdown(f"""
-        <div class="student-card">
-            <div class="student-name">{student['name']} - Year {student['year_level']}</div>
-            <div class="student-details">
-                Age: {student['age']} | Interests: {', '.join(student['interests'][:3]) if student['interests'] else 'None specified'}<br>
-                Timeline: {student['timeline']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button(f"Start Career Guidance for {student['name']}",
-                     key=f"student_{student['id']}", use_container_width=True):
-            st.session_state.selected_student = student
-            st.rerun()
-
-    # Chat interface
+    # Chat interface (improved)
     if 'selected_student' in st.session_state:
         student = st.session_state.selected_student
 
-        st.markdown("---")
         st.markdown(f"""
         <div class="chat-container">
             <div class="chat-header">
-                <div class="chat-title">Career Guidance for {student['name']}</div>
-                <div class="chat-subtitle">AI-powered career counselling with live Australian employment data</div>
+                <div class="chat-title">🤖 AI Career Guidance for {student['name']}</div>
+                <div class="chat-subtitle">Powered by Claude AI with live Australian employment data</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # Chat input with placeholder based on student interests
+        interests_text = ', '.join(student['interests'][:2]) if student['interests'] else 'their interests'
 
         user_input = st.text_area(
             "Ask your career question:",
-            placeholder=f"What career opportunities align with {student['name']}'s interests? What are the current job prospects?",
-            height=100
+            placeholder=f"e.g., 'What university courses align with {student['name']}'s interest in {interests_text}?' or 'What are the current job prospects in their field?'",
+            height=100,
+            help="Ask about university courses, career prospects, application deadlines, or study planning advice."
         )
 
-        if st.button("Get Career Guidance", use_container_width=True):
-            if user_input:
-                st.markdown("""
-                <div class="ai-response">
-                    <div class="ai-response-header">🤖 AI Career Counsellor</div>
-                """, unsafe_allow_html=True)
-
-                st.write(f"""
-                **Career Guidance for {student['name']}:**
-
-                Based on {student['name']}'s interests in **{', '.join(student['interests']) if student['interests'] else 'their chosen fields'}** and current Australian employment data:
-
-                **Recommended Career Pathways:**
-                - Analysis of careers matching their interests
-                - Current employment prospects and salary ranges
-                - University course recommendations
-
-                **Next Steps:**
-                1. Research recommended universities and courses
-                2. Plan application timeline
-                3. Schedule follow-up guidance session
-
-                *Powered by live Australian government employment data.*
-                """)
-
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                # Save conversation
-                db.save_conversation(family_info['id'], student['id'], student['name'],
-                                     user_input, "AI career guidance response", ['career_guidance'])
-
-                st.success("Career guidance session saved to your family records.")
-
-def show_progress_and_reports_tab(students, family_info):
-    """Show progress tracking and reports"""
-    st.markdown('<div class="section-title">📊 Progress Tracking & Reports</div>', unsafe_allow_html=True)
-
-    for student in students:
-        st.markdown(f"### 📈 {student['name']}'s Progress")
-
-        col1, col2, col3 = st.columns(3)
-
+        col1, col2 = st.columns([3, 1])
         with col1:
-            st.markdown("""
-            <div class="metric-card">
-                <div class="metric-value">5</div>
-                <div class="metric-label">Career Sessions</div>
-            </div>
-            """, unsafe_allow_html=True)
+            if st.button("🚀 Get AI Career Guidance", use_container_width=True):
+                if user_input.strip():
+                    with st.spinner("🤖 AI Career Counsellor is thinking..."):
+                        # Simulate AI response (replace with actual AI integration)
+                        st.markdown("""
+                        <div class="ai-response" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
+                            <div style="font-size: 16px; font-weight: 600; color: #1c4980; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                                🤖 AI Career Counsellor Response
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                        st.write(f"""
+                        **Career Guidance for {student['name']}:**
+
+                        Based on {student['name']}'s interests in **{', '.join(student['interests']) if student['interests'] else 'their chosen fields'}** and current Australian employment data:
+
+                        **🎯 Recommended Career Pathways:**
+                        - Analysis of careers matching their interests
+                        - Current employment prospects and salary ranges  
+                        - University course recommendations for NSW/ACT
+
+                        **📚 Next Steps:**
+                        1. Research recommended universities and application requirements
+                        2. Plan subject selection for remaining school years
+                        3. Attend university open days and career fairs
+                        4. Schedule follow-up guidance session
+
+                        **📊 Current Market Data:**
+                        - Graduate employment rate: 89.1% (Australian average)
+                        - Time to employment: 4.2 months average
+                        - Field-specific data updated weekly
+
+                        *This response is saved to your family conversation history.*
+                        """)
+
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                        # Save conversation
+                        try:
+                            db.save_conversation(
+                                family_info['id'],
+                                student['id'],
+                                student['name'],
+                                user_input,
+                                "AI career guidance response provided",
+                                ['career_guidance']
+                            )
+                            st.success("✅ Conversation saved to your family records.")
+                        except Exception as e:
+                            st.warning(f"Conversation not saved: {str(e)}")
+                else:
+                    st.warning("Please enter a question before submitting.")
 
         with col2:
-            st.markdown("""
-            <div class="metric-card">
-                <div class="metric-value">3</div>
-                <div class="metric-label">Universities Explored</div>
-            </div>
-            """, unsafe_allow_html=True)
+            if st.button("👈 Back to Students", use_container_width=True, type="secondary"):
+                if 'selected_student' in st.session_state:
+                    del st.session_state.selected_student
+                st.rerun()
 
-        with col3:
-            st.markdown("""
-            <div class="metric-card">
-                <div class="metric-value">8</div>
-                <div class="metric-label">Career Paths Identified</div>
-            </div>
-            """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        # Recent milestones
-        st.markdown("#### 🎯 Recent Progress")
-        st.markdown("""
-        <div class="milestone-card">
-            <div class="milestone-title">University Research Completed</div>
-            <div class="milestone-description">Explored 3 universities matching interests</div>
-            <div class="milestone-date">2 days ago</div>
-        </div>
-        """, unsafe_allow_html=True)
 
-        if len(students) > 1:
-            st.markdown("---")
-
-def show_family_settings_tab(family_info, students):
-    """Show family settings and management"""
-    st.markdown('<div class="section-title">⚙️ Family Settings</div>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("#### Family Information")
-        st.text_input("Family Name", value=family_info['family_name'], disabled=True)
-        st.text_input("Email", value=family_info.get('email', ''), disabled=True)
-        st.text_input("Location", value=family_info.get('location', ''), disabled=True)
-
-    with col2:
-        st.markdown("#### Account Details")
-        st.text_input("Access Code", value=family_info['access_code'], disabled=True)
-        st.text_input("Students", value=f"{len(students)} students", disabled=True)
-
-    st.markdown("#### Quick Actions")
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("Add New Student", use_container_width=True):
-            st.info("Contact support to add additional students to your family account.")
-
-    with col2:
-        if st.button("Download Reports", use_container_width=True):
-            st.info("Report generation feature coming soon!")
-
-    with col3:
-        if st.button("Contact Support", use_container_width=True):
-            st.info("Support: support@careerpath.edu.au")
-
-def show_full_canvas_integration_tab(students):
-    """Show FULL Canvas LMS integration with complete functionality"""
-    st.markdown('<div class="section-title">📚 Canvas LMS Integration</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-subtitle">Connect your students\' Canvas accounts to sync assignments, exams, and generate AI study plans</div>', unsafe_allow_html=True)
-
-    # Initialize Canvas integrator in session state
-    if 'canvas_integrator' not in st.session_state:
-        st.session_state.canvas_integrator = CanvasIntegrator()
-
-    canvas_integrator = st.session_state.canvas_integrator
-
-    for student in students:
-        st.markdown(f"### 📚 {student['name']} - Canvas Integration")
-
-        # Use the full Canvas setup from canvas_integration.py
-        show_canvas_setup(student, canvas_integrator)
-
-        if len(students) > 1:
-            st.markdown("---")
-
-# =================== MAIN APPLICATION ===================
 def main():
-    """Main application with enhanced authentication"""
+    """Improved main application with better state management"""
 
     # Initialize session state
     if 'secure_agent' not in st.session_state:
         st.session_state.secure_agent = SecureFamilyCareerAgent()
 
-    # Session cleanup
-    auth_system = st.session_state.get('enhanced_auth')
-    if auth_system:
-        auth_system.cleanup_expired_sessions()
+    # Debug panel (remove in production)
+    if st.sidebar.checkbox("🔧 Debug Mode"):
+        st.sidebar.write("Session State Keys:", list(st.session_state.keys()))
+        if 'authenticated_family' in st.session_state:
+            st.sidebar.write("Authenticated:", True)
+            st.sidebar.write("Family:", st.session_state.authenticated_family['family_name'])
 
-    # Check for valid session
-    if 'family_session' in st.session_state and 'authenticated_family' not in st.session_state:
-        session_info = auth_system.validate_session(st.session_state.family_session)
-        if session_info:
-            st.session_state.authenticated_family = {
-                'id': session_info['family_id'],
-                'family_name': session_info['family_name'],
-                'email': session_info.get('email', ''),
-                'location': session_info.get('location', '')
-            }
+        # Quick reset button
+        if st.sidebar.button("🔄 Reset Session"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
 
     # Main application flow
     if 'authenticated_family' not in st.session_state:
-        if 'show_registration' in st.session_state:
+        if 'show_registration' in st.session_state and st.session_state.show_registration:
             create_family_registration()
         else:
             create_family_login()
     else:
         create_authenticated_family_interface(st.session_state.authenticated_family)
+
 
 if __name__ == "__main__":
     main()

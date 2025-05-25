@@ -297,45 +297,87 @@ class MultiFamilyDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # Add access_code column if it doesn't exist
+        # Ensure access_code column exists
         try:
             cursor.execute('ALTER TABLE families ADD COLUMN access_code TEXT')
-        except:
+            conn.commit()
+        except sqlite3.OperationalError:
             pass  # Column already exists
 
-        cursor.execute('''
-            INSERT INTO families (id, family_name, email, location, access_code)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (family_id, family_name, email, location, access_code))
+        # Check if access code already exists (very unlikely but be safe)
+        max_attempts = 10
+        attempts = 0
 
-        conn.commit()
-        conn.close()
+        while attempts < max_attempts:
+            cursor.execute('SELECT id FROM families WHERE access_code = ?', (access_code,))
+            if cursor.fetchone() is None:
+                break  # Access code is unique
 
-        print(f"✅ Created family: {family_name} (Code: {access_code})")
+            # Generate new code
+            access_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            attempts += 1
+
+        try:
+            cursor.execute('''
+                INSERT INTO families (id, family_name, email, location, access_code)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (family_id, family_name, email, location, access_code))
+
+            conn.commit()
+            print(f"✅ Created family: {family_name} (Code: {access_code})")
+
+        except sqlite3.Error as e:
+            print(f"❌ Database error creating family: {e}")
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
         return family_id, access_code
 
     def verify_family_access(self, access_code: str) -> dict:
-        """Verify access code and return family info"""
+        """Verify access code and return family info - IMPROVED VERSION"""
+        if not access_code or len(access_code.strip()) < 6:
+            return None
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
-            SELECT id, family_name, email, location
-            FROM families WHERE access_code = ?
-        ''', (access_code,))
+        try:
+            # Clean the access code
+            clean_code = access_code.strip().upper()
 
-        result = cursor.fetchone()
-        conn.close()
+            cursor.execute('''
+                SELECT id, family_name, email, location, access_code, created_date
+                FROM families WHERE UPPER(access_code) = ?
+            ''', (clean_code,))
 
-        if result:
-            return {
-                'id': result[0],
-                'family_name': result[1],
-                'email': result[2],
-                'location': result[3],
-                'access_code': access_code
-            }
-        return None
+            result = cursor.fetchone()
+
+            if result:
+                # Update last_active timestamp
+                cursor.execute('''
+                    UPDATE families SET last_active = CURRENT_TIMESTAMP WHERE id = ?
+                ''', (result[0],))
+                conn.commit()
+
+                return {
+                    'id': result[0],
+                    'family_name': result[1],
+                    'email': result[2] or '',
+                    'location': result[3] or '',
+                    'access_code': result[4],
+                    'created_date': result[5]
+                }
+            else:
+                print(f"❌ No family found with access code: {clean_code}")
+                return None
+
+        except sqlite3.Error as e:
+            print(f"❌ Database error during verification: {e}")
+            return None
+        finally:
+            conn.close()
 
     # Add this method to your MultiFamilyDatabase class in multi_family_database.py
 
@@ -408,7 +450,83 @@ class MultiFamilyDatabase:
         # Add this line at the end of your existing init_database method:
         self.init_canvas_tables()
 
+    def test_database_connection(self):
+        """Test database connection and show sample data"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
 
+            # Test connection
+            cursor.execute('SELECT COUNT(*) FROM families')
+            family_count = cursor.fetchone()[0]
+
+            print(f"✅ Database connected successfully")
+            print(f"📊 Total families: {family_count}")
+
+            # Show sample families (for debugging)
+            cursor.execute('SELECT family_name, access_code FROM families LIMIT 3')
+            sample_families = cursor.fetchall()
+
+            if sample_families:
+                print("📋 Sample families:")
+                for family_name, code in sample_families:
+                    print(f"  - {family_name}: {code}")
+
+            conn.close()
+            return True
+
+        except Exception as e:
+            print(f"❌ Database connection failed: {e}")
+            return False
+
+    def create_test_family(self):
+        """Create a test family for debugging"""
+        try:
+            family_id, access_code = self.create_family(
+                "Test Family",
+                "test@example.com",
+                "Sydney, NSW"
+            )
+
+            # Add a test student
+            student_data = {
+                'name': 'Test Student',
+                'age': 16,
+                'year_level': 11,
+                'interests': ['science', 'technology'],
+                'preferences': [],
+                'timeline': 'applying in 12 months',
+                'location_preference': 'NSW',
+                'career_considerations': [],
+                'goals': ['university entry']
+            }
+
+            self.add_student(family_id, student_data)
+
+            print(f"🧪 Test family created successfully!")
+            print(f"Family: Test Family")
+            print(f"Access Code: {access_code}")
+
+            return access_code
+
+        except Exception as e:
+            print(f"❌ Failed to create test family: {e}")
+            return None
+
+    # Usage example for testing:
+    if __name__ == "__main__":
+        db = MultiFamilyDatabase()
+
+        # Test database connection
+        if db.test_database_connection():
+            print("Database is working correctly!")
+
+            # Create test family if needed
+            test_code = db.create_test_family()
+            if test_code:
+                print(f"\n🔑 You can test login with code: {test_code}")
+        else:
+            print("Database connection issues detected!")
 # Initialize with sample families for testing
 def setup_sample_families():
     """Set up sample families for demonstration"""
