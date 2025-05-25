@@ -1083,6 +1083,8 @@ def show_canvas_settings(student, canvas_integrator):
 def show_enhanced_assignments_table(student, canvas_integrator):
     """Show assignments in a clean table"""
     st.markdown("#### 📝 Upcoming Assignments")
+    # DEBUG: Add this line temporarily
+    st.error("🔧 DEBUG: Using NEW enhanced assignments table!")
 
     # Get assignments
     assignments = canvas_integrator.get_upcoming_assignments(student['id'], days_ahead=60)

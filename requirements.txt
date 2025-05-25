@@ -12,3 +12,5 @@ reportlab>=4.0.0
 fpdf2>=2.7.0
 lxml>=4.9.0
 schedule>=1.2.0
+requests>=2.31.0
+pandas>=2.0.0
