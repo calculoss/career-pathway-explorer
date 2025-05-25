@@ -540,75 +540,84 @@ def create_family_registration():
 
         submitted = st.form_submit_button("🚀 Create Family Account", use_container_width=True)
 
-        if submitted:
-            # IMPROVED VALIDATION
-            errors = []
+    # Handle form submission outside the form context
+    if submitted:
+        # IMPROVED VALIDATION
+        errors = []
 
-            if not family_name or len(family_name.strip()) < 2:
-                errors.append("Family name must be at least 2 characters")
+        if not family_name or len(family_name.strip()) < 2:
+            errors.append("Family name must be at least 2 characters")
 
-            if not student_name or len(student_name.strip()) < 2:
-                errors.append("Student name must be at least 2 characters")
+        if not student_name or len(student_name.strip()) < 2:
+            errors.append("Student name must be at least 2 characters")
 
-            if not email or "@" not in email:
-                errors.append("Please enter a valid email address")
+        if not email or "@" not in email:
+            errors.append("Please enter a valid email address")
 
-            if errors:
-                for error in errors:
-                    st.error(f"❌ {error}")
-            else:
-                try:
-                    db = st.session_state.secure_db
+        if errors:
+            for error in errors:
+                st.error(f"❌ {error}")
+        else:
+            try:
+                db = st.session_state.secure_db
 
-                    # FIXED: Use the updated create_family method that returns tuple
-                    family_id, access_code = db.create_family(family_name.strip(), email.strip(), location.strip())
+                # FIXED: Use the updated create_family method that returns tuple
+                family_id, access_code = db.create_family(family_name.strip(), email.strip(), location.strip())
 
-                    student_data = {
-                        'name': student_name.strip(),
-                        'age': age,
-                        'year_level': year_level,
-                        'interests': [i.strip() for i in interests.split(',') if i.strip()],
-                        'preferences': [],
-                        'timeline': timeline,
-                        'location_preference': location_preference.strip(),
-                        'career_considerations': [],
-                        'goals': []
-                    }
+                student_data = {
+                    'name': student_name.strip(),
+                    'age': age,
+                    'year_level': year_level,
+                    'interests': [i.strip() for i in interests.split(',') if i.strip()],
+                    'preferences': [],
+                    'timeline': timeline,
+                    'location_preference': location_preference.strip(),
+                    'career_considerations': [],
+                    'goals': []
+                }
 
-                    db.add_student(family_id, student_data)
+                db.add_student(family_id, student_data)
 
-                    # Success display
-                    st.success("🎉 Family account created successfully!")
+                # Success display
+                st.success("🎉 Family account created successfully!")
 
-                    st.markdown(f"""
-                    <div class="access-code-container">
-                        <div class="access-code-label">Your Family Access Code</div>
-                        <div class="access-code">{access_code}</div>
-                        <div class="access-code-note">
-                            ⚠️ <strong>Save this code securely!</strong> You'll need it to access your family dashboard.
-                            <br>📧 A confirmation email will be sent to {email}
-                        </div>
+                st.markdown(f"""
+                <div class="access-code-container">
+                    <div class="access-code-label">Your Family Access Code</div>
+                    <div class="access-code">{access_code}</div>
+                    <div class="access-code-note">
+                        ⚠️ <strong>Save this code securely!</strong> You'll need it to access your family dashboard.
+                        <br>📧 A confirmation email will be sent to {email}
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
-                    # Auto-login option
-                    if st.button("🏠 Access My Family Dashboard Now", use_container_width=True):
-                        st.session_state.authenticated_family = {
-                            'id': family_id,
-                            'family_name': family_name,
-                            'email': email,
-                            'location': location,
-                            'access_code': access_code
-                        }
-                        if 'show_registration' in st.session_state:
-                            del st.session_state.show_registration
-                        st.rerun()
+                # Set auto-login flag
+                st.session_state.auto_login_family = {
+                    'id': family_id,
+                    'family_name': family_name,
+                    'email': email,
+                    'location': location,
+                    'access_code': access_code
+                }
 
-                except Exception as e:
-                    st.error(f"❌ Registration failed: {str(e)}")
-                    st.info("Please try again or contact support if the problem persists.")
+            except Exception as e:
+                st.error(f"❌ Registration failed: {str(e)}")
+                st.info("Please try again or contact support if the problem persists.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # Handle auto-login after registration (outside the form)
+    if 'auto_login_family' in st.session_state:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🏠 Access My Family Dashboard Now", use_container_width=True, type="primary"):
+                st.session_state.authenticated_family = st.session_state.auto_login_family
+                # Clean up session state
+                del st.session_state.auto_login_family
+                if 'show_registration' in st.session_state:
+                    del st.session_state.show_registration
+                st.rerun()
 
     # Back to login
     col1, col2, col3 = st.columns([1, 2, 1])
