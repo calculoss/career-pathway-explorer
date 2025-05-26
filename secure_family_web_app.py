@@ -1977,12 +1977,12 @@ def get_assignment_counts(student, canvas):
 
 
 def categorize_assignment(assignment):
-    """Categorize assignment by type based on name and content - FIXED VERSION"""
+    """Categorize assignment by type - ULTRA RESTRICTIVE for Assessment Tasks"""
 
     name = assignment.get('name', '').upper()
     assignment_type = assignment.get('type', '').upper()
 
-    # Course Materials - documents, syllabi, etc. (CHECK FIRST)
+    # Course Materials - documents, syllabi, etc. (CHECK FIRST - EXPANDED)
     if (
             'REGISTER OF RECEIPT' in name or
             'COURSE DOCUMENTS' in name or
@@ -1990,40 +1990,45 @@ def categorize_assignment(assignment):
             'SCOPE AND SEQUENCE' in name or
             'ASSESSMENT SCHEDULE' in name or
             'REFLECTION' in name or
-            'DRAFT' in name or  # NEW: Draft submissions
-            'SUBMISSION' in name or  # NEW: Submissions
-            'INTERVIEW' in name or  # NEW: Progress interviews
-            'PROGRESS' in name or  # NEW: Progress reports
-            'CHECK' in name or  # NEW: Check-ins
-            'SURVEY' in name  # NEW: Surveys
+            'DRAFT' in name or
+            'SUBMISSION' in name or
+            'INTERVIEW' in name or
+            'PROGRESS' in name or
+            'CHECK' in name or
+            'SURVEY' in name or
+            'CHECKPOINT' in name or
+            'CHAPTER ANALYSIS' in name or  # NEW: Chapter analyses are course materials
+            'WRITING TASK' in name or  # NEW: Writing tasks are typically smaller exercises
+            'PRACTICE' in name or  # NEW: Practice assignments
+            'TUTORIAL' in name  # NEW: Tutorial work
     ):
         return "Course Materials"
 
-    # Quizzes & Tests - smaller assessments
+    # Quizzes & Tests - smaller assessments (EXPANDED)
     elif (
             'QUIZ' in name or
             'TEST' in name or
             'CQ' in name or  # Check questions like "CQ2.1: Describe..."
-            assignment_type == 'QUIZ'
+            assignment_type == 'QUIZ' or
+            name.startswith('CQ') or  # NEW: Questions starting with CQ
+            'CHECK IN' in name or  # NEW: Check-in assignments
+            'DISCURSIVE' in name or  # NEW: Discursive writing (typically shorter)
+            'PERSUASIVE' in name  # NEW: Persuasive writing (typically shorter)
     ):
         return "Quizzes & Tests"
 
-    # Assessment Tasks - the real assignments students need to work on (MORE RESTRICTIVE)
+    # Assessment Tasks - ONLY major starred assessments and clearly labeled assessment tasks
     elif (
-            ('ASSESSMENT TASK' in name and 'REGISTER OF RECEIPT' not in name) or
-            name.startswith('⭐') or
-            ('ASSIGNMENT' in name and 'REGISTER' not in name and 'DRAFT' not in name) or
-            ('PROJECT' in name) or
-            ('ESSAY' in name and 'DRAFT' not in name) or
-            ('REPORT' in name and 'REGISTER' not in name and 'DRAFT' not in name) or
-            ('INVESTIGATION' in name) or
-            ('CAMPAIGN' in name and 'REGISTER' not in name) or
-            ('ANALYSIS' in name and 'DRAFT' not in name) or  # NEW: Analysis tasks
-            ('WRITING TASK' in name and 'DRAFT' not in name)  # NEW: Writing tasks
+            name.startswith('⭐') or  # Starred assignments are definitely major assessments
+            (
+                    'ASSESSMENT TASK' in name and 'REGISTER OF RECEIPT' not in name and '#' in name) or  # Only numbered assessment tasks
+            ('INVESTIGATION' in name and '⭐' in name) or  # Only starred investigations
+            ('CAMPAIGN' in name and '⭐' in name) or  # Only starred campaigns
+            ('PROJECT' in name and '⭐' in name)  # Only starred projects
     ):
         return "Assessment Tasks"
 
-    # Default to Course Materials for unknown items (SAFER DEFAULT)
+    # Everything else defaults to Course Materials (SAFEST)
     else:
         return "Course Materials"
 
