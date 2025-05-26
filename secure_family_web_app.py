@@ -1507,7 +1507,7 @@ def show_canvas_setup(student, canvas):
                 # Test connection
                 test_result = canvas.test_canvas_connection(canvas_url, access_token)
 
-                if test_result['success']:
+                if test_result['status'] == 'success':
                     # Save credentials
                     success = canvas.save_canvas_credentials(
                         student['id'], canvas_url, access_token, test_result['user_name']
