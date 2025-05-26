@@ -9,12 +9,8 @@ import json
 import requests
 import uuid
 import sqlite3
-import requests
-import json
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
-from canvas_integration import CanvasIntegrator, SimpleMilestoneGenerator, show_canvas_setup
 
 # Page configuration
 st.set_page_config(
@@ -413,7 +409,404 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-class ComprehensiveFamilyCareerAgent:
+class CanvasIntegrator:
+    """Canvas LMS Integration with fixed methods"""
+
+    def __init__(self, db_path="community_career_explorer.db"):
+        self.db_path = db_path
+        self.init_canvas_tables()
+
+    def init_canvas_tables(self):
+        """Initialize Canvas tables if they don't exist"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Canvas credentials table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                canvas_url TEXT,
+                access_token TEXT,
+                student_name TEXT,
+                canvas_user_id TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                last_sync DATETIME,
+                UNIQUE(student_id)
+            )
+        ''')
+
+        # Canvas assignments table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                course_name TEXT,
+                assignment_name TEXT,
+                due_date DATETIME,
+                points_possible REAL,
+                description TEXT,
+                html_url TEXT,
+                is_quiz BOOLEAN DEFAULT FALSE,
+                UNIQUE(student_id, assignment_id)
+            )
+        ''')
+
+        # Study milestones table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS study_milestones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                assignment_name TEXT,
+                title TEXT,
+                description TEXT,
+                target_date TEXT,
+                completed BOOLEAN DEFAULT FALSE,
+                created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+
+    def test_canvas_connection(self, canvas_url: str, access_token: str):
+        """Test Canvas API connection"""
+        try:
+            clean_url = canvas_url.rstrip('/')
+            response = requests.get(
+                f"{clean_url}/api/v1/users/self",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                user_data = response.json()
+                return {
+                    'success': True,
+                    'user_name': user_data.get('name', 'Unknown'),
+                    'user_id': str(user_data.get('id', '')),
+                    'message': f"Connected as {user_data.get('name', 'Unknown')}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f'HTTP {response.status_code}: Authentication failed'
+                }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Connection failed: {str(e)}'
+            }
+
+    def save_canvas_credentials(self, student_id: str, canvas_url: str, access_token: str,
+                                user_name: str, user_id: str = ""):
+        """Save Canvas credentials for a student"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                INSERT OR REPLACE INTO canvas_credentials 
+                (student_id, canvas_url, access_token, student_name, canvas_user_id, last_sync)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (student_id, canvas_url.rstrip('/'), access_token, user_name, user_id,
+                  datetime.now().isoformat()))
+
+            conn.commit()
+            conn.close()
+            return True
+
+        except Exception as e:
+            return False
+
+    def has_canvas_credentials(self, student_id: str):
+        """Check if student has Canvas credentials"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT COUNT(*) FROM canvas_credentials 
+                WHERE student_id = ? AND is_active = TRUE
+            ''', (student_id,))
+
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count > 0
+
+        except Exception:
+            return False
+
+    def get_canvas_credentials(self, student_id: str):
+        """Get Canvas credentials for a student"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT canvas_url, access_token, student_name, canvas_user_id, last_sync
+                FROM canvas_credentials 
+                WHERE student_id = ? AND is_active = TRUE
+            ''', (student_id,))
+
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                return {
+                    'canvas_url': result[0],
+                    'access_token': result[1],
+                    'student_name': result[2],
+                    'canvas_user_id': result[3],
+                    'last_sync': result[4]
+                }
+            return None
+
+        except Exception:
+            return None
+
+    def sync_assignments(self, student_id: str):
+        """Sync assignments from Canvas"""
+        try:
+            credentials = self.get_canvas_credentials(student_id)
+            if not credentials:
+                return {'success': False, 'message': 'No Canvas credentials found'}
+
+            canvas_url = credentials['canvas_url']
+            access_token = credentials['access_token']
+
+            # Get courses
+            courses_response = requests.get(
+                f"{canvas_url}/api/v1/courses",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"enrollment_state": "active", "per_page": 20},
+                timeout=15
+            )
+
+            if courses_response.status_code != 200:
+                return {'success': False, 'message': 'Failed to fetch courses'}
+
+            courses = courses_response.json()
+            total_assignments = 0
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Clear existing assignments
+            cursor.execute('DELETE FROM canvas_assignments WHERE student_id = ?', (student_id,))
+
+            # Sync assignments from each course
+            for course in courses[:10]:  # Limit to 10 courses
+                course_id = course['id']
+                course_name = course.get('name', 'Unknown Course')
+
+                # Get assignments
+                try:
+                    assignments_response = requests.get(
+                        f"{canvas_url}/api/v1/courses/{course_id}/assignments",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        params={"per_page": 50},
+                        timeout=15
+                    )
+
+                    if assignments_response.status_code == 200:
+                        assignments = assignments_response.json()
+
+                        for assignment in assignments:
+                            due_date = assignment.get('due_at')
+                            if due_date:
+                                try:
+                                    # Parse Canvas date
+                                    due_datetime = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                                    due_datetime = due_datetime.replace(tzinfo=None)
+
+                                    cursor.execute('''
+                                        INSERT OR REPLACE INTO canvas_assignments
+                                        (student_id, assignment_id, course_name, assignment_name, 
+                                         due_date, points_possible, description, html_url, is_quiz)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    ''', (
+                                        student_id,
+                                        str(assignment['id']),
+                                        course_name,
+                                        assignment.get('name', 'Untitled Assignment'),
+                                        due_datetime.isoformat(),
+                                        assignment.get('points_possible', 0),
+                                        assignment.get('description', '')[:500],
+                                        assignment.get('html_url', ''),
+                                        False
+                                    ))
+
+                                    total_assignments += 1
+
+                                except Exception:
+                                    continue
+
+                    # Get quizzes
+                    quizzes_response = requests.get(
+                        f"{canvas_url}/api/v1/courses/{course_id}/quizzes",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        params={"per_page": 50},
+                        timeout=15
+                    )
+
+                    if quizzes_response.status_code == 200:
+                        quizzes = quizzes_response.json()
+
+                        for quiz in quizzes:
+                            due_date = quiz.get('due_at')
+                            if due_date:
+                                try:
+                                    due_datetime = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                                    due_datetime = due_datetime.replace(tzinfo=None)
+
+                                    cursor.execute('''
+                                        INSERT OR REPLACE INTO canvas_assignments
+                                        (student_id, assignment_id, course_name, assignment_name, 
+                                         due_date, points_possible, description, html_url, is_quiz)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    ''', (
+                                        student_id,
+                                        f"quiz_{quiz['id']}",
+                                        course_name,
+                                        quiz.get('title', 'Untitled Quiz'),
+                                        due_datetime.isoformat(),
+                                        quiz.get('points_possible', 0),
+                                        quiz.get('description', '')[:500],
+                                        quiz.get('html_url', ''),
+                                        True
+                                    ))
+
+                                    total_assignments += 1
+
+                                except Exception:
+                                    continue
+
+                except Exception:
+                    continue
+
+            # Update last sync time
+            cursor.execute('''
+                UPDATE canvas_credentials 
+                SET last_sync = ? 
+                WHERE student_id = ?
+            ''', (datetime.now().isoformat(), student_id))
+
+            conn.commit()
+            conn.close()
+
+            return {
+                'success': True,
+                'message': f'Successfully synced {total_assignments} assignments and quizzes',
+                'count': total_assignments
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Sync failed: {str(e)}'
+            }
+
+    def get_student_assignments(self, student_id: str):
+        """Get assignments for a student"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT assignment_id, course_name, assignment_name, due_date, 
+                       points_possible, description, html_url, is_quiz
+                FROM canvas_assignments 
+                WHERE student_id = ?
+                ORDER BY due_date ASC
+            ''', (student_id,))
+
+            assignments = []
+            for row in cursor.fetchall():
+                assignments.append({
+                    'assignment_id': row[0],
+                    'course': row[1],
+                    'name': row[2],
+                    'due_date': row[3],
+                    'points': row[4],
+                    'description': row[5] or '',
+                    'html_url': row[6] or '',
+                    'type': 'Quiz' if row[7] else 'Assignment'
+                })
+
+            conn.close()
+            return assignments
+
+        except Exception as e:
+            return []
+
+    def save_study_milestones(self, student_id: str, assignment_id: str, assignment_name: str, milestones: list):
+        """Save study milestones for an assignment"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Clear existing milestones for this assignment
+            cursor.execute('''
+                DELETE FROM study_milestones 
+                WHERE student_id = ? AND assignment_id = ?
+            ''', (student_id, assignment_id))
+
+            # Insert new milestones
+            for milestone in milestones:
+                cursor.execute('''
+                    INSERT INTO study_milestones
+                    (student_id, assignment_id, assignment_name, title, description, target_date)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    student_id,
+                    assignment_id,
+                    assignment_name,
+                    milestone['title'],
+                    milestone['description'],
+                    milestone['target_date']
+                ))
+
+            conn.commit()
+            conn.close()
+            return True
+
+        except Exception:
+            return False
+
+    def get_study_milestones(self, student_id: str, assignment_id: str):
+        """Get study milestones for an assignment"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT title, description, target_date, completed
+                FROM study_milestones 
+                WHERE student_id = ? AND assignment_id = ?
+                ORDER BY target_date ASC
+            ''', (student_id, assignment_id))
+
+            milestones = []
+            for row in cursor.fetchall():
+                milestones.append({
+                    'title': row[0],
+                    'description': row[1],
+                    'target_date': row[2],
+                    'completed': bool(row[3])
+                })
+
+            conn.close()
+            return milestones
+
+        except Exception:
+            return []
+
+
+class SecureFamilyCareerAgent:
     def __init__(self):
         try:
             api_key = st.secrets["ANTHROPIC_API_KEY"]
@@ -421,81 +814,20 @@ class ComprehensiveFamilyCareerAgent:
             load_dotenv()
             api_key = os.getenv("ANTHROPIC_API_KEY")
 
-        self.client = anthropic.Anthropic(api_key=api_key)
+        if api_key:
+            self.client = anthropic.Anthropic(api_key=api_key)
+        else:
+            self.client = None
 
         if 'secure_db' not in st.session_state:
             st.session_state.secure_db = MultiFamilyDatabase()
         self.db = st.session_state.secure_db
 
-    def test_canvas_connection(self, canvas_url, access_token):
-        """Test Canvas API connection"""
-        try:
-            headers = {'Authorization': f'Bearer {access_token}'}
-            response = requests.get(f"{canvas_url}/api/v1/users/self", headers=headers, timeout=10)
-
-            if response.status_code == 200:
-                user_data = response.json()
-                return True, user_data.get('name', 'Unknown User')
-            else:
-                return False, f"API Error: {response.status_code}"
-        except Exception as e:
-            return False, str(e)
-
-    def sync_canvas_assignments(self, student_id, canvas_url, access_token):
-        """Sync assignments from Canvas"""
-        try:
-            headers = {'Authorization': f'Bearer {access_token}'}
-
-            # Get courses
-            courses_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=10)
-            if courses_response.status_code != 200:
-                return False, "Failed to fetch courses"
-
-            courses = courses_response.json()
-            assignments_synced = 0
-
-            for course in courses[:5]:  # Limit to 5 courses
-                course_id = course['id']
-                course_name = course['name']
-
-                # Get assignments
-                assignments_response = requests.get(
-                    f"{canvas_url}/api/v1/courses/{course_id}/assignments",
-                    headers=headers,
-                    timeout=10
-                )
-
-                if assignments_response.status_code == 200:
-                    assignments = assignments_response.json()
-
-                    for assignment in assignments:
-                        if assignment.get('due_at'):
-                            # Save to database
-                            conn = self.db.db_path
-                            # Implementation would save assignment data
-                            assignments_synced += 1
-
-                # Get quizzes
-                quizzes_response = requests.get(
-                    f"{canvas_url}/api/v1/courses/{course_id}/quizzes",
-                    headers=headers,
-                    timeout=10
-                )
-
-                if quizzes_response.status_code == 200:
-                    quizzes = quizzes_response.json()
-
-                    for quiz in quizzes:
-                        if quiz.get('due_at'):
-                            assignments_synced += 1
-
-            return True, f"Synced {assignments_synced} assignments and quizzes"
-
-        except Exception as e:
-            return False, str(e)
-
     def generate_ai_study_plan(self, assignment_name, due_date, assignment_description=""):
         """Generate AI study plan milestones for an assignment"""
+        if not self.client:
+            return self.get_default_milestones(assignment_name, due_date)
+
         try:
             prompt = f"""
             Create a 4-step study plan for this assignment:
@@ -526,45 +858,72 @@ class ComprehensiveFamilyCareerAgent:
 
             # Parse the response to extract JSON
             content = response.content[0].text
-
-            # Extract JSON from the response
             import re
             json_match = re.search(r'\[.*\]', content, re.DOTALL)
             if json_match:
                 milestones_data = json.loads(json_match.group())
                 return milestones_data
             else:
-                # Fallback to default milestones
                 return self.get_default_milestones(assignment_name, due_date)
 
         except Exception as e:
-            st.error(f"AI generation failed: {e}")
             return self.get_default_milestones(assignment_name, due_date)
 
     def get_default_milestones(self, assignment_name, due_date):
         """Fallback default milestones"""
-        return [
-            {
-                "title": "Initial Research & Planning",
-                "description": f"Research the topic for {assignment_name} and create an outline",
-                "target_date": due_date  # Would calculate proper dates
-            },
-            {
-                "title": "First Draft",
-                "description": "Complete the initial draft of the assignment",
-                "target_date": due_date
-            },
-            {
-                "title": "Review & Revise",
-                "description": "Review, edit, and improve the assignment",
-                "target_date": due_date
-            },
-            {
-                "title": "Final Check",
-                "description": "Final proofreading and submission preparation",
-                "target_date": due_date
-            }
-        ]
+        try:
+            due_datetime = datetime.fromisoformat(due_date.replace('Z', ''))
+            days_until_due = (due_datetime - datetime.now()).days
+
+            if days_until_due > 7:
+                return [
+                    {
+                        "title": "Research & Planning",
+                        "description": f"Research the topic for {assignment_name} and create an outline",
+                        "target_date": (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+                    },
+                    {
+                        "title": "First Draft",
+                        "description": "Complete the initial draft of the assignment",
+                        "target_date": (due_datetime - timedelta(days=3)).strftime('%Y-%m-%d')
+                    },
+                    {
+                        "title": "Review & Revise",
+                        "description": "Review, edit, and improve the assignment",
+                        "target_date": (due_datetime - timedelta(days=1)).strftime('%Y-%m-%d')
+                    },
+                    {
+                        "title": "Final Check",
+                        "description": "Final proofreading and submission preparation",
+                        "target_date": due_datetime.strftime('%Y-%m-%d')
+                    }
+                ]
+            else:
+                return [
+                    {
+                        "title": "Quick Planning",
+                        "description": "Create outline and gather materials",
+                        "target_date": (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                    },
+                    {
+                        "title": "Complete Work",
+                        "description": "Complete the assignment",
+                        "target_date": (due_datetime - timedelta(days=1)).strftime('%Y-%m-%d')
+                    }
+                ]
+        except:
+            return [
+                {
+                    "title": "Plan Assignment",
+                    "description": "Create a plan for completing this assignment",
+                    "target_date": datetime.now().strftime('%Y-%m-%d')
+                },
+                {
+                    "title": "Complete Assignment",
+                    "description": "Work on and complete the assignment",
+                    "target_date": (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
+                }
+            ]
 
 
 def create_header():
@@ -581,345 +940,200 @@ def create_header():
     """, unsafe_allow_html=True)
 
 
-def create_enhanced_authentication():
-    """Enhanced authentication with both access codes and username/password"""
+def create_family_login():
+    """Clean, professional login interface"""
     create_header()
 
     st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
-    # Auth method selection
-    auth_method = st.radio(
-        "Choose login method:",
-        ["Family Access Code", "Username & Password"],
-        horizontal=True
-    )
-
-    if auth_method == "Family Access Code":
-        create_access_code_login()
-    else:
-        create_username_password_login()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def create_access_code_login():
-    """Access code login (existing functionality)"""
+    # Page header
     st.markdown("""
-    <div class="auth-container">
-        <div class="auth-title">Family Access</div>
-        <div class="auth-subtitle">Enter your unique family code</div>
-    </div>
+    <div class="auth-title">Secure Family Access</div>
+    <div class="auth-subtitle">Enter your family access code to view your personalised career guidance dashboard</div>
     """, unsafe_allow_html=True)
 
-    with st.form("access_code_login"):
-        access_code = st.text_input(
-            "Family Access Code",
-            placeholder="Enter your 8-character code",
-            max_chars=8
-        )
-
-        submitted = st.form_submit_button("Access Family Dashboard", use_container_width=True)
-
-        if submitted and access_code:
-            db = st.session_state.secure_db
-            family_info = db.verify_family_access(access_code.upper().strip())
-
-            if family_info:
-                st.session_state.authenticated_family = family_info
-                st.success(f"✅ Welcome back, {family_info['family_name']}!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid access code")
-
-
-def create_username_password_login():
-    """Username and password login"""
+    # Security features
     st.markdown("""
-    <div class="auth-container">
-        <div class="auth-title">Account Login</div>
-        <div class="auth-subtitle">Sign in with your username and password</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    with st.form("username_password_login"):
-        username = st.text_input("Username or Email")
-        password = st.text_input("Password", type="password")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            login_submitted = st.form_submit_button("Sign In", use_container_width=True)
-        with col2:
-            register_submitted = st.form_submit_button("Create Account", use_container_width=True, type="secondary")
-
-        if login_submitted:
-            # Implement username/password authentication
-            st.info("Username/password authentication coming soon!")
-
-        if register_submitted:
-            st.session_state.show_registration = True
-            st.rerun()
-
-
-def create_canvas_integration_tab(student):
-    """Enhanced Canvas integration with AI study planning"""
-    st.markdown("""
-    <div class="canvas-container">
-        <div class="canvas-header">
-            <div class="canvas-title">🎓 Canvas LMS Integration</div>
-            <div class="canvas-subtitle">Sync assignments and create AI-powered study plans</div>
+    <div style="display: flex; justify-content: center; gap: 32px; margin: 32px 0; flex-wrap: wrap;">
+        <div style="text-align: center; flex: 1; min-width: 200px;">
+            <div style="font-size: 24px; margin-bottom: 8px;">🔒</div>
+            <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 4px;">Private & Secure</div>
+            <div style="font-size: 14px; color: #6b7280; line-height: 1.4;">Your family's data is encrypted and completely private</div>
+        </div>
+        <div style="text-align: center; flex: 1; min-width: 200px;">
+            <div style="font-size: 24px; margin-bottom: 8px;">👨‍👩‍👧‍👦</div>
+            <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 4px;">Family Only</div>
+            <div style="font-size: 14px; color: #6b7280; line-height: 1.4;">Only your family can access your students and conversations</div>
+        </div>
+        <div style="text-align: center; flex: 1; min-width: 200px;">
+            <div style="font-size: 24px; margin-bottom: 8px;">🛡️</div>
+            <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 4px;">Data Protected</div>
+            <div style="font-size: 14px; color: #6b7280; line-height: 1.4;">We never share your information with other families</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Canvas connection section
-    with st.expander("🔗 Canvas Connection Settings", expanded=False):
-        col1, col2 = st.columns(2)
+    # Login form
+    st.markdown("""
+    <div style="background: #f9fafb; border: 1px solid #e5e5e5; border-radius: 8px; padding: 32px; margin: 24px 0;">
+        <div style="font-size: 24px; font-weight: 600; color: #374151; margin-bottom: 8px; text-align: center;">Access Your Family Dashboard</div>
+        <div style="font-size: 16px; color: #6b7280; margin-bottom: 32px; text-align: center;">Use the 8-character code provided when you registered</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with col1:
-            canvas_url = st.text_input(
-                "Canvas URL",
-                placeholder="https://your-school.instructure.com",
-                help="Your school's Canvas URL"
+    with st.form("family_login"):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            access_code = st.text_input(
+                "Family Access Code",
+                placeholder="e.g., SMITH123",
+                help="The unique 8-character code for your family",
+                key="login_access_code"
             )
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            submitted = st.form_submit_button("Access My Family", use_container_width=True)
+
+        if submitted and access_code:
+            db = st.session_state.secure_db
+            family_info = db.verify_family_access(access_code.upper())
+
+            if family_info:
+                st.session_state.authenticated_family = family_info
+                st.success(f"Welcome back, {family_info['family_name']}!")
+                st.rerun()
+            else:
+                st.error("Invalid access code. Please check your code and try again.")
+
+    # Registration section
+    st.markdown(
+        '<div style="font-size: 24px; font-weight: 600; color: #374151; margin-bottom: 16px; margin-top: 32px;">New to CareerPath?</div>',
+        unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size: 16px; color: #6b7280; margin-bottom: 24px;">Join families across Australia getting professional career guidance</div>',
+        unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Register Your Family", use_container_width=True, type="secondary", key="register_family_btn"):
+            st.session_state.show_registration = True
+            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def create_family_registration():
+    """Clean family registration form"""
+    create_header()
+
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="font-size: 32px; font-weight: 700; color: #1c4980; margin-bottom: 8px; line-height: 1.2;">Family Registration</div>
+    <div style="font-size: 18px; color: #6b7280; margin-bottom: 32px; line-height: 1.4;">Create your secure family account and get instant access to professional career guidance</div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background: #f9fafb; border: 1px solid #e5e5e5; border-radius: 8px; padding: 32px; margin: 24px 0;">
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("family_registration"):
+        st.markdown(
+            '<div style="font-size: 24px; font-weight: 600; color: #374151; margin-bottom: 16px;">Family Information</div>',
+            unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            family_name = st.text_input("Family Name *", placeholder="e.g., The Smith Family", key="reg_family_name")
+            email = st.text_input("Email Address *", placeholder="your.email@example.com", key="reg_email")
 
         with col2:
-            access_token = st.text_input(
-                "Access Token",
-                type="password",
-                placeholder="Your Canvas access token",
-                help="Generate from Canvas Account Settings > Approved Integrations"
-            )
+            location = st.text_input("Location", placeholder="e.g., Sydney, NSW", key="reg_location")
 
-        if st.button("🧪 Test Connection", use_container_width=True):
-            if canvas_url and access_token:
-                agent = st.session_state.comprehensive_agent
-                success, message = agent.test_canvas_connection(canvas_url, access_token)
+        st.markdown(
+            '<div style="font-size: 24px; font-weight: 600; color: #374151; margin-bottom: 16px; margin-top: 32px;">First Student</div>',
+            unsafe_allow_html=True)
 
-                if success:
-                    st.success(f"✅ Connected successfully! User: {message}")
-                    # Save credentials
-                    st.info("💾 Credentials saved securely")
-                else:
-                    st.error(f"❌ Connection failed: {message}")
-            else:
-                st.warning("Please enter both Canvas URL and access token")
+        col1, col2 = st.columns(2)
+        with col1:
+            student_name = st.text_input("Student Name *", placeholder="e.g., Emma", key="reg_student_name")
+            age = st.number_input("Age", min_value=14, max_value=20, value=16, key="reg_age")
+            year_level = st.selectbox("Year Level", [9, 10, 11, 12], index=2, key="reg_year_level")
 
-        if st.button("🔄 Sync Assignments", use_container_width=True):
-            if canvas_url and access_token:
-                agent = st.session_state.comprehensive_agent
-                with st.spinner("Syncing assignments from Canvas..."):
-                    success, message = agent.sync_canvas_assignments(student['id'], canvas_url, access_token)
+        with col2:
+            interests = st.text_area("Interests", placeholder="e.g., psychology, science, helping others",
+                                     key="reg_interests")
+            timeline = st.selectbox("University Timeline",
+                                    ["Applying in 2+ years", "Applying in 12 months", "Applying in 6 months",
+                                     "Applying now"], key="reg_timeline")
+            location_preference = st.text_input("Study Location Preference", placeholder="e.g., NSW/ACT",
+                                                key="reg_location_pref")
 
-                if success:
-                    st.success(f"✅ {message}")
-                    st.rerun()  # Refresh to show new assignments
-                else:
-                    st.error(f"❌ Sync failed: {message}")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            submitted = st.form_submit_button("Create Family Account", use_container_width=True)
 
-    # Sample assignments (replace with real data from database)
-    assignments_data = [
-        {
-            "name": "History Essay - World War II",
-            "course": "Modern History",
-            "due_date": "2024-12-15",
-            "type": "Assignment",
-            "points": 100,
-            "description": "Write a 2000-word essay on the causes of WWII"
-        },
-        {
-            "name": "Biology Lab Report",
-            "course": "Biology",
-            "due_date": "2024-12-10",
-            "type": "Assignment",
-            "points": 50,
-            "description": "Lab report on cellular respiration experiment"
-        },
-        {
-            "name": "Mathematics Final Exam",
-            "course": "Mathematics",
-            "due_date": "2024-12-20",
-            "type": "Quiz",
-            "points": 200,
-            "description": "Comprehensive final exam covering all semester topics"
-        }
-    ]
+        if submitted:
+            if family_name and student_name and email:
+                db = st.session_state.secure_db
 
-    # Assignments table with AI study planning
-    st.markdown("### 📋 Upcoming Assignments & Exams")
+                family_id, access_code = db.create_family(family_name, email, location)
 
-    for i, assignment in enumerate(assignments_data):
-        # Calculate urgency
-        due_date = datetime.strptime(assignment['due_date'], '%Y-%m-%d')
-        days_until_due = (due_date - datetime.now()).days
+                student_data = {
+                    'name': student_name,
+                    'age': age,
+                    'year_level': year_level,
+                    'interests': [i.strip() for i in interests.split(',') if i.strip()],
+                    'preferences': [],
+                    'timeline': timeline,
+                    'location_preference': location_preference,
+                    'career_considerations': [],
+                    'goals': []
+                }
 
-        if days_until_due < 0:
-            urgency_class = "overdue"
-            urgency_text = "OVERDUE"
-            urgency_badge_class = "urgency-overdue"
-        elif days_until_due <= 3:
-            urgency_class = "due-soon"
-            urgency_text = "DUE SOON"
-            urgency_badge_class = "urgency-soon"
-        else:
-            urgency_class = "future"
-            urgency_text = "FUTURE"
-            urgency_badge_class = "urgency-future"
+                db.add_student(family_id, student_data)
 
-        with st.container():
-            col1, col2 = st.columns([3, 1])
+                # Success message with access code
+                st.success("Family account created successfully!")
 
-            with col1:
                 st.markdown(f"""
-                <div class="assignment-row {urgency_class}">
-                    <div class="assignment-name">
-                        {assignment['name']}
-                        <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
-                    </div>
-                    <div class="assignment-details">
-                        📚 {assignment['course']} | 📅 Due: {assignment['due_date']} | 
-                        🎯 {assignment['points']} points | 📝 {assignment['type']}
-                        <br>{assignment['description']}
+                <div style="background: #f0f9ff; border: 2px dashed #0ea5e9; border-radius: 8px; padding: 32px; text-align: center; margin: 24px 0;">
+                    <div style="font-size: 16px; color: #075985; font-weight: 600; margin-bottom: 8px;">Your Family Access Code</div>
+                    <div style="font-size: 36px; font-weight: 700; color: #0c4a6e; letter-spacing: 4px; font-family: 'Monaco', 'Menlo', monospace; margin: 16px 0;">{access_code}</div>
+                    <div style="font-size: 14px; color: #6b7280; margin-top: 16px;">
+                        Save this code securely. You'll need it to access your family's career guidance dashboard.
+                        <br>A confirmation email has been sent to {email}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            with col2:
-                if st.button(f"🤖 Generate Study Plan", key=f"study_plan_{i}", use_container_width=True):
-                    st.session_state[f"show_study_plan_{i}"] = True
-                    st.rerun()
-
-        # AI Study Planning Interface
-        if st.session_state.get(f"show_study_plan_{i}", False):
-            st.markdown(f"""
-            <div class="study-plan-container">
-                <div class="study-plan-header">
-                    🧠 AI Study Plan for: {assignment['name']}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Generate AI milestones
-            if f"milestones_{i}" not in st.session_state:
-                agent = st.session_state.comprehensive_agent
-                with st.spinner("🤖 AI is creating your study plan..."):
-                    milestones = agent.generate_ai_study_plan(
-                        assignment['name'],
-                        assignment['due_date'],
-                        assignment['description']
-                    )
-                    st.session_state[f"milestones_{i}"] = milestones
-
-            milestones = st.session_state[f"milestones_{i}"]
-
-            # Step 1: AI Suggestions (Interactive Selection)
-            st.markdown("#### Step 1: Select AI-Generated Milestones")
-
-            selected_milestones = []
-
-            for j, milestone in enumerate(milestones):
-                col1, col2, col3 = st.columns([1, 4, 2])
-
-                with col1:
-                    selected = st.checkbox("Select", key=f"milestone_{i}_{j}")
-
+                col1, col2, col3 = st.columns([1, 2, 1])
                 with col2:
-                    edited_description = st.text_area(
-                        "Description",
-                        value=milestone['description'],
-                        height=60,
-                        key=f"desc_{i}_{j}",
-                        label_visibility="collapsed"
-                    )
+                    if st.button("Access My Family Dashboard", use_container_width=True, key="access_dashboard_btn"):
+                        st.session_state.authenticated_family = {
+                            'id': family_id,
+                            'family_name': family_name,
+                            'email': email,
+                            'location': location,
+                            'access_code': access_code
+                        }
+                        if 'show_registration' in st.session_state:
+                            del st.session_state.show_registration
+                        st.rerun()
+            else:
+                st.error("Please fill in all required fields.")
 
-                with col3:
-                    edited_date = st.date_input(
-                        "Target Date",
-                        value=datetime.strptime(milestone['target_date'], '%Y-%m-%d').date(),
-                        key=f"date_{i}_{j}",
-                        label_visibility="collapsed"
-                    )
+    # Back to login
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Back to Login", use_container_width=True, type="secondary", key="back_to_login_btn"):
+            if 'show_registration' in st.session_state:
+                del st.session_state.show_registration
+            st.rerun()
 
-                if selected:
-                    selected_milestones.append({
-                        "title": milestone['title'],
-                        "description": edited_description,
-                        "target_date": str(edited_date)
-                    })
-
-            # Step 2: Add Custom Milestones
-            with st.expander("➕ Add Your Own Milestones"):
-                with st.form(f"custom_milestone_{i}"):
-                    custom_title = st.text_input("Milestone Title")
-                    custom_description = st.text_area("Description")
-                    custom_date = st.date_input("Target Date")
-
-                    if st.form_submit_button("Add Custom Milestone"):
-                        if custom_title:
-                            custom_milestone = {
-                                "title": custom_title,
-                                "description": custom_description,
-                                "target_date": str(custom_date)
-                            }
-                            selected_milestones.append(custom_milestone)
-                            st.success("✅ Custom milestone added!")
-
-            # Step 3: Save Study Plan
-            col1, col2 = st.columns(2)
-
-            with col1:
-                if st.button(f"💾 Save Study Plan ({len(selected_milestones)} milestones)", key=f"save_{i}",
-                             use_container_width=True):
-                    if selected_milestones:
-                        # Save to database (implement database saving logic)
-                        st.success(f"✅ Study plan saved with {len(selected_milestones)} milestones!")
-                        st.session_state[f"saved_plan_{i}"] = selected_milestones
-                    else:
-                        st.warning("Please select at least one milestone")
-
-            with col2:
-                if st.button("❌ Cancel", key=f"cancel_{i}", use_container_width=True, type="secondary"):
-                    st.session_state[f"show_study_plan_{i}"] = False
-                    st.rerun()
-
-            # Show saved study plan
-            if st.session_state.get(f"saved_plan_{i}"):
-                st.markdown("#### 📊 Your Study Plan Progress")
-
-                saved_plan = st.session_state[f"saved_plan_{i}"]
-                completed_count = 0
-
-                for k, milestone in enumerate(saved_plan):
-                    col1, col2 = st.columns([1, 5])
-
-                    with col1:
-                        completed = st.checkbox(
-                            "Done",
-                            key=f"completed_{i}_{k}",
-                            value=st.session_state.get(f"completed_{i}_{k}", False)
-                        )
-                        if completed:
-                            completed_count += 1
-
-                    with col2:
-                        milestone_class = "completed" if completed else ""
-                        st.markdown(f"""
-                        <div class="milestone-item {milestone_class}">
-                            <div class="milestone-title">{milestone['title']}</div>
-                            <div class="milestone-description">{milestone['description']}</div>
-                            <div class="milestone-date">Target: {milestone['target_date']}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                # Progress bar
-                progress = completed_count / len(saved_plan) if saved_plan else 0
-                st.markdown(f"""
-                <div class="progress-container">
-                    <div class="progress-header">Progress: {completed_count}/{len(saved_plan)} milestones completed</div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {progress * 100}%"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def create_comprehensive_family_interface(family_info):
@@ -944,7 +1158,7 @@ def create_comprehensive_family_interface(family_info):
         """, unsafe_allow_html=True)
 
     with col2:
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
+        if st.button("🚪 Logout", use_container_width=True, type="secondary", key="logout_btn"):
             keys_to_remove = ['authenticated_family', 'selected_student']
             for key in keys_to_remove:
                 if key in st.session_state:
@@ -983,8 +1197,8 @@ def create_comprehensive_family_interface(family_info):
     with tab1:
         create_career_guidance_tab(selected_student, family_info)
 
-    with tab2:  # Canvas & Study Planning tab
-        show_simple_canvas_integration(selected_student)
+    with tab2:
+        create_canvas_integration_tab(selected_student)
 
     with tab3:
         create_progress_tab(selected_student)
@@ -996,7 +1210,7 @@ def create_comprehensive_family_interface(family_info):
 
 
 def create_career_guidance_tab(student, family_info):
-    """Career guidance tab (existing functionality)"""
+    """Career guidance tab"""
     st.markdown("### 🤖 AI Career Guidance")
 
     interests_text = ', '.join(student['interests'][:2]) if student['interests'] else 'their interests'
@@ -1004,10 +1218,11 @@ def create_career_guidance_tab(student, family_info):
     user_input = st.text_area(
         "Ask your career question:",
         placeholder=f"e.g., 'What university courses align with {student['name']}'s interest in {interests_text}?' or 'What are the current job prospects in their field?'",
-        height=100
+        height=100,
+        key=f"career_input_{student['id']}"
     )
 
-    if st.button("🚀 Get AI Career Guidance", use_container_width=True):
+    if st.button("🚀 Get AI Career Guidance", use_container_width=True, key=f"career_btn_{student['id']}"):
         if user_input.strip():
             with st.spinner("🤖 AI Career Counsellor is thinking..."):
                 st.markdown("""
@@ -1056,6 +1271,360 @@ def create_career_guidance_tab(student, family_info):
                     st.warning(f"Conversation not saved: {str(e)}")
         else:
             st.warning("Please enter a question before submitting.")
+
+
+def create_canvas_integration_tab(student):
+    """Canvas integration with AI study planning"""
+
+    # Initialize Canvas integrator
+    if 'canvas_integrator' not in st.session_state:
+        st.session_state.canvas_integrator = CanvasIntegrator()
+
+    canvas = st.session_state.canvas_integrator
+
+    st.markdown("### 🎓 Canvas LMS Integration")
+
+    # Check if already connected
+    if canvas.has_canvas_credentials(student['id']):
+        show_canvas_dashboard(student, canvas)
+    else:
+        show_canvas_connection_form(student, canvas)
+
+
+def show_canvas_connection_form(student, canvas):
+    """Canvas setup form"""
+    st.markdown(f"""
+    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
+        <h4>🔗 Connect {student['name']}'s Canvas Account</h4>
+        <p>Automatically sync assignments and due dates from Canvas.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Instructions
+    with st.expander("📋 How to get your Canvas access token", expanded=False):
+        st.markdown("""
+        **Step-by-step instructions:**
+
+        1. **Log into Canvas** (your school's Canvas site)
+        2. **Click your profile picture** → **Settings**
+        3. **Scroll to "Approved Integrations"**
+        4. **Click "+ New Access Token"**
+        5. **Purpose:** Enter "Family Career App"
+        6. **Click "Generate Token"**
+        7. **Copy the token** and paste below
+
+        ⚠️ **Keep your token private** - don't share it with anyone!
+        """)
+
+    # Connection form
+    with st.form(f"canvas_setup_form_{student['id']}"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            canvas_url = st.text_input(
+                "Canvas URL",
+                placeholder="https://your-school.instructure.com",
+                help="Your school's Canvas website",
+                key=f"canvas_url_{student['id']}"
+            )
+
+        with col2:
+            access_token = st.text_input(
+                "Access Token",
+                type="password",
+                help="Token from Canvas → Settings → Approved Integrations",
+                key=f"canvas_token_{student['id']}"
+            )
+
+        submitted = st.form_submit_button("🔗 Connect Canvas", use_container_width=True)
+
+        if submitted and canvas_url and access_token:
+            with st.spinner("Testing Canvas connection..."):
+                # Test connection
+                test_result = canvas.test_canvas_connection(canvas_url, access_token)
+
+                if test_result['success']:
+                    # Save credentials
+                    success = canvas.save_canvas_credentials(
+                        student['id'], canvas_url, access_token,
+                        test_result['user_name'], test_result['user_id']
+                    )
+
+                    if success:
+                        st.success(f"✅ **Canvas Connected Successfully!**\n\nConnected as: {test_result['user_name']}")
+
+                        # Initial sync
+                        with st.spinner("Syncing assignments..."):
+                            sync_result = canvas.sync_assignments(student['id'])
+
+                        if sync_result['success']:
+                            st.success(f"🎉 {sync_result['message']}")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.warning(f"Canvas connected but sync had issues: {sync_result['message']}")
+                    else:
+                        st.error("Failed to save Canvas credentials")
+                else:
+                    st.error(f"❌ **Connection Failed:** {test_result['message']}")
+
+
+def show_canvas_dashboard(student, canvas):
+    """Canvas dashboard for connected student"""
+
+    # Dashboard header
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown(f"""
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+            <h4>📚 Canvas Connected</h4>
+            <p><strong>{student['name']}</strong> • Canvas integration active</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        if st.button("🔄 Sync Now", use_container_width=True, key=f"sync_button_{student['id']}"):
+            with st.spinner("Syncing Canvas data..."):
+                sync_result = canvas.sync_assignments(student['id'])
+
+                if sync_result['success']:
+                    st.success(sync_result['message'])
+                    st.rerun()
+                else:
+                    st.error(f"Sync failed: {sync_result['message']}")
+
+    # Show assignments
+    show_assignments_list(student, canvas)
+
+
+def show_assignments_list(student, canvas):
+    """Show assignments list with AI study planning"""
+
+    st.markdown("### 📋 Upcoming Assignments & Exams")
+
+    # Get assignments from database
+    assignments = canvas.get_student_assignments(student['id'])
+
+    if not assignments:
+        st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
+        return
+
+    # Sort assignments by due date
+    current_time = datetime.now()
+
+    for i, assignment in enumerate(assignments[:10]):  # Limit to 10 assignments
+        try:
+            # Calculate urgency
+            due_date = datetime.fromisoformat(assignment['due_date'])
+            days_until_due = (due_date - current_time).days
+
+            if days_until_due < 0:
+                urgency_class = "overdue"
+                urgency_text = "OVERDUE"
+                urgency_badge_class = "urgency-overdue"
+            elif days_until_due <= 3:
+                urgency_class = "due-soon"
+                urgency_text = "DUE SOON"
+                urgency_badge_class = "urgency-soon"
+            else:
+                urgency_class = "future"
+                urgency_text = "FUTURE"
+                urgency_badge_class = "urgency-future"
+
+            # Assignment container
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    st.markdown(f"""
+                    <div class="assignment-row {urgency_class}">
+                        <div class="assignment-name">
+                            {assignment['name']}
+                            <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
+                        </div>
+                        <div class="assignment-details">
+                            📚 {assignment['course']} | 📅 Due: {due_date.strftime('%Y-%m-%d %H:%M')} | 
+                            🎯 {assignment['points']} points | 📝 {assignment['type']}
+                            <br>{assignment['description'][:100]}...
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    if st.button(f"🤖 Study Plan", key=f"study_plan_btn_{student['id']}_{i}", use_container_width=True):
+                        st.session_state[f"show_study_plan_{student['id']}_{i}"] = True
+                        st.rerun()
+
+            # AI Study Planning Interface
+            if st.session_state.get(f"show_study_plan_{student['id']}_{i}", False):
+                show_ai_study_planning(student, assignment, i)
+
+        except Exception as e:
+            st.error(f"Error displaying assignment: {str(e)}")
+            continue
+
+
+def show_ai_study_planning(student, assignment, assignment_index):
+    """AI Study Planning Interface"""
+
+    unique_id = f"{student['id']}_{assignment_index}"
+
+    st.markdown(f"""
+    <div class="study-plan-container">
+        <div class="study-plan-header">
+            🧠 AI Study Plan for: {assignment['name']}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Generate AI milestones if not already done
+    if f"milestones_{unique_id}" not in st.session_state:
+        agent = st.session_state.get('career_agent')
+        if not agent:
+            if 'career_agent' not in st.session_state:
+                st.session_state.career_agent = SecureFamilyCareerAgent()
+            agent = st.session_state.career_agent
+
+        with st.spinner("🤖 AI is creating your study plan..."):
+            milestones = agent.generate_ai_study_plan(
+                assignment['name'],
+                assignment['due_date'],
+                assignment['description']
+            )
+            st.session_state[f"milestones_{unique_id}"] = milestones
+
+    milestones = st.session_state[f"milestones_{unique_id}"]
+
+    # Step 1: AI Suggestions (Interactive Selection)
+    st.markdown("#### Step 1: Select Study Milestones")
+
+    selected_milestones = []
+
+    for j, milestone in enumerate(milestones):
+        col1, col2, col3 = st.columns([1, 4, 2])
+
+        with col1:
+            selected = st.checkbox("Select", key=f"milestone_select_{unique_id}_{j}")
+
+        with col2:
+            edited_description = st.text_area(
+                "Description",
+                value=milestone['description'],
+                height=60,
+                key=f"milestone_desc_{unique_id}_{j}",
+                label_visibility="collapsed"
+            )
+
+        with col3:
+            try:
+                default_date = datetime.strptime(milestone['target_date'], '%Y-%m-%d').date()
+            except:
+                default_date = datetime.now().date()
+
+            edited_date = st.date_input(
+                "Target Date",
+                value=default_date,
+                key=f"milestone_date_{unique_id}_{j}",
+                label_visibility="collapsed"
+            )
+
+        if selected:
+            selected_milestones.append({
+                "title": milestone['title'],
+                "description": edited_description,
+                "target_date": str(edited_date)
+            })
+
+    # Step 2: Add Custom Milestones
+    with st.expander("➕ Add Your Own Milestones"):
+        with st.form(f"custom_milestone_form_{unique_id}"):
+            custom_title = st.text_input("Milestone Title")
+            custom_description = st.text_area("Description")
+            custom_date = st.date_input("Target Date")
+
+            if st.form_submit_button("Add Custom Milestone"):
+                if custom_title:
+                    custom_milestone = {
+                        "title": custom_title,
+                        "description": custom_description,
+                        "target_date": str(custom_date)
+                    }
+                    if f"custom_milestones_{unique_id}" not in st.session_state:
+                        st.session_state[f"custom_milestones_{unique_id}"] = []
+                    st.session_state[f"custom_milestones_{unique_id}"].append(custom_milestone)
+                    st.success("✅ Custom milestone added!")
+
+    # Include custom milestones
+    if f"custom_milestones_{unique_id}" in st.session_state:
+        selected_milestones.extend(st.session_state[f"custom_milestones_{unique_id}"])
+
+    # Step 3: Save Study Plan
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(f"💾 Save Study Plan ({len(selected_milestones)} milestones)",
+                     key=f"save_plan_{unique_id}", use_container_width=True):
+            if selected_milestones:
+                # Save to database
+                canvas = st.session_state.canvas_integrator
+                success = canvas.save_study_milestones(
+                    student['id'],
+                    assignment['assignment_id'],
+                    assignment['name'],
+                    selected_milestones
+                )
+
+                if success:
+                    st.session_state[f"saved_plan_{unique_id}"] = selected_milestones
+                    st.success(f"✅ Study plan saved with {len(selected_milestones)} milestones!")
+                else:
+                    st.error("Failed to save study plan")
+            else:
+                st.warning("Please select at least one milestone")
+
+    with col2:
+        if st.button("❌ Cancel", key=f"cancel_plan_{unique_id}",
+                     use_container_width=True, type="secondary"):
+            st.session_state[f"show_study_plan_{student['id']}_{assignment_index}"] = False
+            st.rerun()
+
+    # Show saved study plan
+    if st.session_state.get(f"saved_plan_{unique_id}"):
+        st.markdown("#### 📊 Your Study Plan Progress")
+
+        saved_plan = st.session_state[f"saved_plan_{unique_id}"]
+        completed_count = 0
+
+        for k, milestone in enumerate(saved_plan):
+            col1, col2 = st.columns([1, 5])
+
+            with col1:
+                completed = st.checkbox("Done", key=f"completed_{unique_id}_{k}",
+                                        value=st.session_state.get(f"completed_{unique_id}_{k}", False))
+                if completed:
+                    completed_count += 1
+
+            with col2:
+                milestone_class = "completed" if completed else ""
+                st.markdown(f"""
+                <div class="milestone-item {milestone_class}">
+                    <div class="milestone-title">{milestone['title']}</div>
+                    <div class="milestone-description">{milestone['description']}</div>
+                    <div class="milestone-date">Target: {milestone['target_date']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Progress bar
+        progress = completed_count / len(saved_plan) if saved_plan else 0
+        st.markdown(f"""
+        <div class="progress-container">
+            <div class="progress-header">Progress: {completed_count}/{len(saved_plan)} milestones completed</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {progress * 100}%"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def create_progress_tab(student):
@@ -1114,23 +1683,26 @@ def create_settings_tab(student, family_info):
             updated_interests = st.text_area(
                 "Interests",
                 value=', '.join(student['interests']) if student['interests'] else '',
-                help="Enter interests separated by commas"
+                help="Enter interests separated by commas",
+                key=f"interests_{student['id']}"
             )
 
             updated_timeline = st.selectbox(
                 "University Timeline",
                 ["Applying in 2+ years", "Applying in 12 months", "Applying in 6 months", "Applying now"],
-                index=0
+                index=0,
+                key=f"timeline_{student['id']}"
             )
 
         with col2:
             updated_location_pref = st.text_input(
                 "Location Preference",
                 value=student.get('location_preference', ''),
-                placeholder="e.g., NSW/ACT"
+                placeholder="e.g., NSW/ACT",
+                key=f"location_pref_{student['id']}"
             )
 
-            notifications = st.checkbox("Enable study reminders", value=True)
+            notifications = st.checkbox("Enable study reminders", value=True, key=f"notifications_{student['id']}")
 
         if st.form_submit_button("💾 Save Settings", use_container_width=True):
             st.success("✅ Settings updated successfully!")
@@ -1141,456 +1713,20 @@ def create_settings_tab(student, family_info):
     col1, col2 = st.columns(2)
 
     with col1:
-        st.checkbox("Assignment due date reminders", value=True)
-        st.checkbox("Study plan milestone alerts", value=True)
+        st.checkbox("Assignment due date reminders", value=True, key=f"reminder1_{student['id']}")
+        st.checkbox("Study plan milestone alerts", value=True, key=f"reminder2_{student['id']}")
 
     with col2:
-        st.checkbox("Career guidance suggestions", value=False)
-        st.checkbox("Weekly progress summaries", value=True)
-
-
-class SimpleCanvasIntegrator:
-    """Simple Canvas integration for the family app"""
-
-    def __init__(self, db_path="community_career_explorer.db"):
-        self.db_path = db_path
-        self.init_canvas_tables()
-
-    def init_canvas_tables(self):
-        """Initialize Canvas tables if they don't exist"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        # Canvas credentials table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS canvas_credentials (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id TEXT,
-                canvas_url TEXT,
-                access_token TEXT,
-                student_name TEXT,
-                is_active BOOLEAN DEFAULT TRUE,
-                last_sync DATETIME,
-                UNIQUE(student_id)
-            )
-        ''')
-
-        # Canvas assignments table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS canvas_assignments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id TEXT,
-                assignment_id TEXT,
-                course_name TEXT,
-                assignment_name TEXT,
-                due_date DATETIME,
-                points_possible REAL,
-                description TEXT,
-                html_url TEXT,
-                is_quiz BOOLEAN DEFAULT FALSE,
-                UNIQUE(student_id, assignment_id)
-            )
-        ''')
-
-        conn.commit()
-        conn.close()
-
-    def test_canvas_connection(self, canvas_url: str, access_token: str):
-        """Test Canvas API connection"""
-        try:
-            response = requests.get(
-                f"{canvas_url.rstrip('/')}/api/v1/users/self",
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=15
-            )
-
-            if response.status_code == 200:
-                user_data = response.json()
-                return {
-                    'success': True,
-                    'user_name': user_data.get('name', 'Unknown'),
-                    'message': f"Connected as {user_data.get('name', 'Unknown')}"
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': f'HTTP {response.status_code}: Authentication failed'
-                }
-
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Connection failed: {str(e)}'
-            }
-
-    def save_canvas_credentials(self, student_id: str, canvas_url: str, access_token: str, user_name: str):
-        """Save Canvas credentials for a student"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute('''
-                INSERT OR REPLACE INTO canvas_credentials 
-                (student_id, canvas_url, access_token, student_name, last_sync)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (student_id, canvas_url, access_token, user_name, datetime.now().isoformat()))
-
-            conn.commit()
-            conn.close()
-            return True
-
-        except Exception as e:
-            return False
-
-    def sync_assignments(self, student_id: str):
-        """Sync assignments from Canvas"""
-        try:
-            # Get credentials
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute('''
-                SELECT canvas_url, access_token FROM canvas_credentials 
-                WHERE student_id = ? AND is_active = TRUE
-            ''', (student_id,))
-
-            result = cursor.fetchone()
-            if not result:
-                return {'success': False, 'message': 'No Canvas credentials found'}
-
-            canvas_url, access_token = result
-
-            # Get courses
-            courses_response = requests.get(
-                f"{canvas_url}/api/v1/courses",
-                headers={"Authorization": f"Bearer {access_token}"},
-                params={"enrollment_state": "active", "per_page": 20},
-                timeout=15
-            )
-
-            if courses_response.status_code != 200:
-                return {'success': False, 'message': 'Failed to fetch courses'}
-
-            courses = courses_response.json()
-            total_assignments = 0
-
-            # Clear existing assignments
-            cursor.execute('DELETE FROM canvas_assignments WHERE student_id = ?', (student_id,))
-
-            # Sync assignments from each course
-            for course in courses[:10]:  # Limit to 10 courses
-                course_id = course['id']
-                course_name = course.get('name', 'Unknown Course')
-
-                # Get assignments
-                assignments_response = requests.get(
-                    f"{canvas_url}/api/v1/courses/{course_id}/assignments",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    params={"per_page": 50},
-                    timeout=15
-                )
-
-                if assignments_response.status_code == 200:
-                    assignments = assignments_response.json()
-
-                    for assignment in assignments:
-                        due_date = assignment.get('due_at')
-                        if due_date:
-                            try:
-                                # Parse Canvas date
-                                due_datetime = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
-                                due_datetime = due_datetime.replace(tzinfo=None)  # Remove timezone
-
-                                cursor.execute('''
-                                    INSERT OR REPLACE INTO canvas_assignments
-                                    (student_id, assignment_id, course_name, assignment_name, 
-                                     due_date, points_possible, description, html_url, is_quiz)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                ''', (
-                                    student_id,
-                                    str(assignment['id']),
-                                    course_name,
-                                    assignment.get('name', 'Untitled Assignment'),
-                                    due_datetime.isoformat(),
-                                    assignment.get('points_possible', 0),
-                                    assignment.get('description', '')[:500],
-                                    assignment.get('html_url', ''),
-                                    False
-                                ))
-
-                                total_assignments += 1
-
-                            except Exception:
-                                continue
-
-                # Get quizzes
-                quizzes_response = requests.get(
-                    f"{canvas_url}/api/v1/courses/{course_id}/quizzes",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    params={"per_page": 50},
-                    timeout=15
-                )
-
-                if quizzes_response.status_code == 200:
-                    quizzes = quizzes_response.json()
-
-                    for quiz in quizzes:
-                        due_date = quiz.get('due_at')
-                        if due_date:
-                            try:
-                                due_datetime = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
-                                due_datetime = due_datetime.replace(tzinfo=None)
-
-                                cursor.execute('''
-                                    INSERT OR REPLACE INTO canvas_assignments
-                                    (student_id, assignment_id, course_name, assignment_name, 
-                                     due_date, points_possible, description, html_url, is_quiz)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                ''', (
-                                    student_id,
-                                    f"quiz_{quiz['id']}",
-                                    course_name,
-                                    quiz.get('title', 'Untitled Quiz'),
-                                    due_datetime.isoformat(),
-                                    quiz.get('points_possible', 0),
-                                    quiz.get('description', '')[:500],
-                                    quiz.get('html_url', ''),
-                                    True
-                                ))
-
-                                total_assignments += 1
-
-                            except Exception:
-                                continue
-
-            # Update last sync time
-            cursor.execute('''
-                UPDATE canvas_credentials 
-                SET last_sync = ? 
-                WHERE student_id = ?
-            ''', (datetime.now().isoformat(), student_id))
-
-            conn.commit()
-            conn.close()
-
-            return {
-                'success': True,
-                'message': f'Successfully synced {total_assignments} assignments and quizzes',
-                'count': total_assignments
-            }
-
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Sync failed: {str(e)}'
-            }
-
-    def get_student_assignments(self, student_id: str):
-        """Get assignments for a student"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute('''
-                SELECT assignment_id, course_name, assignment_name, due_date, 
-                       points_possible, description, html_url, is_quiz
-                FROM canvas_assignments 
-                WHERE student_id = ?
-                ORDER BY due_date ASC
-            ''', (student_id,))
-
-            assignments = []
-            for row in cursor.fetchall():
-                assignments.append({
-                    'assignment_id': row[0],
-                    'course': row[1],
-                    'name': row[2],
-                    'due_date': row[3],
-                    'points': row[4],
-                    'description': row[5] or '',
-                    'html_url': row[6] or '',
-                    'type': 'Quiz' if row[7] else 'Assignment'
-                })
-
-            conn.close()
-            return assignments
-
-        except Exception as e:
-            return []
-
-    def has_canvas_credentials(self, student_id: str):
-        """Check if student has Canvas credentials"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute('''
-                SELECT COUNT(*) FROM canvas_credentials 
-                WHERE student_id = ? AND is_active = TRUE
-            ''', (student_id,))
-
-            count = cursor.fetchone()[0]
-            conn.close()
-            return count > 0
-
-        except Exception:
-            return False
-
-
-# ADD THESE FUNCTIONS TO YOUR EXISTING APP:
-
-def show_simple_canvas_integration(student):
-    """Simple Canvas integration interface"""
-
-    # Initialize Canvas integrator
-    if 'simple_canvas' not in st.session_state:
-        st.session_state.simple_canvas = SimpleCanvasIntegrator()
-
-    canvas = st.session_state.simple_canvas
-
-    st.markdown("### 🎓 Canvas LMS Integration")
-
-    # Check if already connected
-    if canvas.has_canvas_credentials(student['id']):
-        show_canvas_dashboard(student, canvas)
-    else:
-        show_canvas_setup(student, canvas)
-
-
-def show_canvas_setup(student, canvas):
-    """Canvas setup with credential checking"""
-
-    # Check if already connected
-    credentials = canvas.get_canvas_credentials(student['id'])
-
-    if credentials:
-        # Already connected - show dashboard
-        show_canvas_dashboard(student, canvas)
-    else:
-        # Not connected - show connection form
-        show_canvas_connection_form(student, canvas)
-
-def show_canvas_connection_form(student, canvas):
-    """Canvas setup form"""
-    st.markdown(f"""
-    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
-        <h4>🔗 Connect {student['name']}'s Canvas Account</h4>
-        <p>Automatically sync assignments and due dates from Canvas.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Instructions
-    with st.expander("📋 How to get your Canvas access token", expanded=False):
-        st.markdown("""
-        **Step-by-step instructions:**
-
-        1. **Log into Canvas** (your school's Canvas site)
-        2. **Click your profile picture** → **Settings**
-        3. **Scroll to "Approved Integrations"**
-        4. **Click "+ New Access Token"**
-        5. **Purpose:** Enter "Family Career App"
-        6. **Click "Generate Token"**
-        7. **Copy the token** and paste below
-
-        ⚠️ **Keep your token private** - don't share it with anyone!
-        """)
-
-    # Connection form
-    with st.form(f"canvas_setup_{student['id']}"):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            canvas_url = st.text_input(
-                "Canvas URL",
-                placeholder="https://your-school.instructure.com",
-                help="Your school's Canvas website"
-            )
-
-        with col2:
-            access_token = st.text_input(
-                "Access Token",
-                type="password",
-                help="Token from Canvas → Settings → Approved Integrations"
-            )
-
-        submitted = st.form_submit_button("🔗 Connect Canvas", use_container_width=True)
-
-        if submitted and canvas_url and access_token:
-            with st.spinner("Testing Canvas connection..."):
-                # Test connection
-                test_result = canvas.test_canvas_connection(canvas_url, access_token)
-
-                if test_result['status'] == 'success':
-                    # Save credentials
-                    success = canvas.save_canvas_credentials(
-                        student['id'], canvas_url, access_token,
-                        test_result['user_name'], test_result['user_id']
-                    )
-                    if success:
-                        st.success(f"✅ **Canvas Connected Successfully!**\n\nConnected as: {test_result['user_name']}")
-
-                        # Initial sync
-                        with st.spinner("Syncing assignments..."):
-                            sync_result = canvas.sync_assignments(student['id'])
-
-                        if sync_result['status'] == 'success':  # ✅ Correct
-                            st.success(f"🎉 {sync_result['message']}")
-                            st.balloons()
-                            st.rerun()
-                        else:
-                            st.warning(f"Canvas connected but sync had issues: {sync_result['message']}")
-                    else:
-                        st.error("Failed to save Canvas credentials")
-                else:
-                    st.error(f"❌ **Connection Failed:** {test_result['message']}")
-
-
-def show_canvas_dashboard(student, canvas):
-    """Canvas dashboard for connected student"""
-
-    # Dashboard header
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.markdown(f"""
-        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
-            <h4>📚 Canvas Connected</h4>
-            <p><strong>{student['name']}</strong> • Canvas integration active</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        if st.button("🔄 Sync Now", use_container_width=True):
-            with st.spinner("Syncing Canvas data..."):
-                sync_result = canvas.sync_assignments(student['id'])
-
-                if sync_result['success']:
-                    st.success(sync_result['message'])
-                    st.rerun()
-                else:
-                    st.error(f"Sync failed: {sync_result['message']}")
-
-    # Show assignments
-    show_assignments_table(student, canvas)
-
-
-def show_assignments_table(student, canvas_integrator):
-    """Show full Canvas integration with AI study planning and enhanced filtering"""
-
-    # Initialize Canvas integrator if needed
-    if 'canvas_integrator' not in st.session_state:
-        st.session_state.canvas_integrator = CanvasIntegrator()
-
-    # Use the full Canvas setup from canvas_integration.py
-    show_canvas_setup(student, st.session_state.canvas_integrator)
+        st.checkbox("Career guidance suggestions", value=False, key=f"reminder3_{student['id']}")
+        st.checkbox("Weekly progress summaries", value=True, key=f"reminder4_{student['id']}")
 
 
 def main():
     """Enhanced main application"""
 
     # Initialize session state
-    if 'comprehensive_agent' not in st.session_state:
-        st.session_state.comprehensive_agent = ComprehensiveFamilyCareerAgent()
+    if 'career_agent' not in st.session_state:
+        st.session_state.career_agent = SecureFamilyCareerAgent()
 
     # Debug panel
     if st.sidebar.checkbox("🔧 Debug Mode"):
@@ -1607,10 +1743,9 @@ def main():
     # Main application flow
     if 'authenticated_family' not in st.session_state:
         if 'show_registration' in st.session_state and st.session_state.show_registration:
-            # Use existing registration function
-            st.info("Registration functionality available - implement create_family_registration()")
+            create_family_registration()
         else:
-            create_enhanced_authentication()
+            create_family_login()
     else:
         create_comprehensive_family_interface(st.session_state.authenticated_family)
 
