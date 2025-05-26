@@ -1198,8 +1198,8 @@ def create_comprehensive_family_interface(family_info):
         create_career_guidance_tab(selected_student, family_info)
 
     with tab2:
-        #create_canvas_integration_tab(selected_student)
-        create_canvas_integration_tab_debug(selected_student)
+        create_canvas_integration_tab(selected_student)
+
 
     with tab3:
         create_progress_tab(selected_student)
@@ -1294,8 +1294,10 @@ def create_canvas_integration_tab(student):
 
 # STEP 3: Replace your show_assignments_list function with this version that actually filters
 
+# FIXED VERSION: Replace your show_assignments_list function with this
+
 def show_assignments_list(student, canvas):
-    """Show assignments list with AI study planning - Step 3: ACTUAL FILTERING"""
+    """Show assignments list with FIXED filtering - only shows assignments with due dates"""
 
     # Get filter values
     days_filter, course_filter = show_assignment_filters(student)
@@ -1307,44 +1309,45 @@ def show_assignments_list(student, canvas):
         st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
         return
 
-    # STEP 3: APPLY FILTERS HERE
+    # Separate assignments with and without due dates
     current_time = datetime.now()
-    filtered_assignments = []
+    assignments_with_dates = []
+    assignments_without_dates = []
 
     for assignment in assignments:
-        try:
-            # Parse due date for time filtering
-            due_date = None
-            due_date_str = assignment.get('due_date')
+        due_date_str = assignment.get('due_date')
+        has_due_date = False
 
-            if due_date_str:
-                try:
-                    if isinstance(due_date_str, str):
-                        clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
-                        try:
-                            due_date = datetime.fromisoformat(clean_date_str)
-                        except ValueError:
-                            try:
-                                due_date = datetime.strptime(clean_date_str, '%Y-%m-%d %H:%M:%S')
-                            except ValueError:
-                                try:
-                                    due_date = datetime.strptime(clean_date_str, '%Y-%m-%d')
-                                except ValueError:
-                                    due_date = None
-                    elif isinstance(due_date_str, datetime):
-                        due_date = due_date_str
-                except Exception:
-                    due_date = None
+        if due_date_str:
+            try:
+                if isinstance(due_date_str, str):
+                    clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
+                    due_date = datetime.fromisoformat(clean_date_str)
+                    assignment['parsed_due_date'] = due_date  # Store parsed date
+                    has_due_date = True
+                elif isinstance(due_date_str, datetime):
+                    assignment['parsed_due_date'] = due_date_str
+                    has_due_date = True
+            except Exception:
+                pass
+
+        if has_due_date:
+            assignments_with_dates.append(assignment)
+        else:
+            assignments_without_dates.append(assignment)
+
+    # Apply filters to assignments WITH due dates only
+    filtered_assignments = []
+
+    for assignment in assignments_with_dates:
+        try:
+            due_date = assignment.get('parsed_due_date')
 
             # Apply TIME filter
             if due_date:
                 days_until_due = (due_date - current_time).days
-                # Include assignments that are overdue (negative days) or within the selected range
                 if days_until_due > days_filter:
-                    continue  # Skip assignments that are too far in the future
-            else:
-                # If no due date, include it (or skip it - your choice)
-                pass  # Include assignments with no due date
+                    continue  # Skip assignments too far in the future
 
             # Apply COURSE filter
             if course_filter != "All Courses":
@@ -1356,11 +1359,12 @@ def show_assignments_list(student, canvas):
             filtered_assignments.append(assignment)
 
         except Exception:
-            # If there's any error processing the assignment, include it anyway
-            filtered_assignments.append(assignment)
+            # If there's any error, skip this assignment
+            continue
 
-    # Show filter results summary
-    total_assignments = len(assignments)
+    # Show summary
+    total_with_dates = len(assignments_with_dates)
+    total_without_dates = len(assignments_without_dates)
     filtered_count = len(filtered_assignments)
 
     if course_filter == "All Courses":
@@ -1368,51 +1372,26 @@ def show_assignments_list(student, canvas):
     else:
         course_text = f'"{course_filter}"'
 
-    st.caption(
-        f"📊 Showing {filtered_count} of {total_assignments} assignments from {course_text} due within {days_filter} days")
+    st.markdown(f"""
+    **📊 Assignment Summary:**
+    - {filtered_count} assignments with due dates match your filters ({course_text}, within {days_filter} days)
+    - {total_with_dates} total assignments with due dates
+    - {total_without_dates} assignments without due dates (hidden by default)
+    """)
 
-    if not filtered_assignments:
-        st.info(
-            f"📅 No assignments found matching your filters. Try selecting a longer time period or different course.")
-        return
+    # Show assignments with due dates that match filters
+    if filtered_assignments:
+        st.markdown("### 📅 Assignments with Due Dates")
 
-    # Display filtered assignments (keeping your existing display logic)
-    for i, assignment in enumerate(filtered_assignments[:20]):  # Show up to 20 filtered results
-        try:
-            # Calculate urgency (same logic as before)
-            due_date = None
-            due_date_str = assignment.get('due_date')
+        # Sort by due date
+        filtered_assignments.sort(key=lambda x: x.get('parsed_due_date', datetime.now()))
 
-            if due_date_str:
-                try:
-                    if isinstance(due_date_str, str):
-                        clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
-                        try:
-                            due_date = datetime.fromisoformat(clean_date_str)
-                        except ValueError:
-                            try:
-                                due_date = datetime.strptime(clean_date_str, '%Y-%m-%d %H:%M:%S')
-                            except ValueError:
-                                try:
-                                    due_date = datetime.strptime(clean_date_str, '%Y-%m-%d')
-                                except ValueError:
-                                    due_date = None
-                    elif isinstance(due_date_str, datetime):
-                        due_date = due_date_str
-                except Exception:
-                    due_date = None
-
-            # Set urgency and display info
-            if not due_date:
-                due_date = datetime.now() + timedelta(days=7)
-                due_date_display = "Date TBD"
-                urgency_class = "future"
-                urgency_text = "DATE TBD"
-                urgency_badge_class = "urgency-future"
-            else:
-                due_date_display = due_date.strftime('%Y-%m-%d %H:%M')
+        for i, assignment in enumerate(filtered_assignments[:20]):  # Show up to 20
+            try:
+                due_date = assignment.get('parsed_due_date')
                 days_until_due = (due_date - current_time).days
 
+                # Calculate urgency
                 if days_until_due < 0:
                     urgency_class = "overdue"
                     urgency_text = "OVERDUE"
@@ -1426,61 +1405,252 @@ def show_assignments_list(student, canvas):
                     urgency_text = "FUTURE"
                     urgency_badge_class = "urgency-future"
 
-            # Assignment container (same as your existing code)
-            with st.container():
-                col1, col2 = st.columns([3, 1])
+                # Assignment container
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
 
-                with col1:
+                    with col1:
+                        assignment_name = assignment.get('name', 'Untitled Assignment')
+                        course_name = assignment.get('course', 'Unknown Course')
+                        points = assignment.get('points', 0)
+                        assignment_type = assignment.get('type', 'Assignment')
+                        description = assignment.get('description', 'No description available')[:100]
+                        due_date_display = due_date.strftime('%Y-%m-%d %H:%M')
+
+                        st.markdown(f"""
+                        <div class="assignment-row {urgency_class}">
+                            <div class="assignment-name">
+                                {assignment_name}
+                                <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
+                            </div>
+                            <div class="assignment-details">
+                                📚 {course_name} | 📅 Due: {due_date_display} | 
+                                🎯 {points} points | 📝 {assignment_type}
+                                <br>{description}...
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    with col2:
+                        unique_key = f"study_plan_btn_{student['id']}_dated_{i}"
+                        if st.button(f"🤖 Study Plan", key=unique_key, use_container_width=True):
+                            st.session_state[f"show_study_plan_{student['id']}_dated_{i}"] = True
+                            st.rerun()
+
+                # AI Study Planning Interface
+                if st.session_state.get(f"show_study_plan_{student['id']}_dated_{i}", False):
+                    show_ai_study_planning_dated(student, assignment, i)
+
+            except Exception as e:
+                st.error(f"Error displaying assignment: {str(e)}")
+                continue
+    else:
+        st.info(
+            f"📅 No assignments with due dates found matching your filters. Try selecting a longer time period or different course.")
+
+    # Optional: Show assignments without due dates in a collapsible section
+    if total_without_dates > 0:
+        with st.expander(f"📋 View {total_without_dates} assignments without due dates (course materials, etc.)",
+                         expanded=False):
+
+            # Apply course filter to undated assignments too
+            undated_filtered = []
+            for assignment in assignments_without_dates:
+                if course_filter == "All Courses":
+                    undated_filtered.append(assignment)
+                else:
+                    assignment_course = assignment.get('course', 'Unknown Course')
+                    if assignment_course == course_filter:
+                        undated_filtered.append(assignment)
+
+            if undated_filtered:
+                st.caption(f"Showing {len(undated_filtered)} undated assignments from {course_text}")
+
+                for i, assignment in enumerate(undated_filtered[:10]):  # Limit to 10
                     assignment_name = assignment.get('name', 'Untitled Assignment')
                     course_name = assignment.get('course', 'Unknown Course')
-                    points = assignment.get('points', 0)
                     assignment_type = assignment.get('type', 'Assignment')
-                    description = assignment.get('description', 'No description available')[:100]
 
                     st.markdown(f"""
-                    <div class="assignment-row {urgency_class}">
+                    <div class="assignment-row future" style="opacity: 0.7;">
                         <div class="assignment-name">
                             {assignment_name}
-                            <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
+                            <span class="urgency-badge urgency-future">NO DATE</span>
                         </div>
                         <div class="assignment-details">
-                            📚 {course_name} | 📅 Due: {due_date_display} | 
-                            🎯 {points} points | 📝 {assignment_type}
-                            <br>{description}...
+                            📚 {course_name} | 📝 {assignment_type}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+            else:
+                st.caption("No undated assignments match your course filter.")
 
-                with col2:
-                    # Use filtered assignment index for unique keys
-                    unique_key = f"study_plan_btn_{student['id']}_filtered_{i}"
-                    if st.button(f"🤖 Study Plan", key=unique_key, use_container_width=True):
-                        st.session_state[f"show_study_plan_{student['id']}_filtered_{i}"] = True
-                        st.rerun()
+def show_ai_study_planning_dated(student, assignment, assignment_index):
+    """AI Study Planning Interface - For assignments with due dates"""
 
-            # AI Study Planning Interface (same as before, but with filtered index)
-            if st.session_state.get(f"show_study_plan_{student['id']}_filtered_{i}", False):
-                show_ai_study_planning_filtered(student, assignment, i)
+    unique_id = f"{student['id']}_dated_{assignment_index}"
 
-        except Exception as e:
-            # Fallback display for problematic assignments
-            st.markdown(f"""
-            <div class="assignment-row future">
-                <div class="assignment-name">
-                    {assignment.get('name', 'Assignment')}
-                    <span class="urgency-badge urgency-future">NEEDS REVIEW</span>
+    st.markdown(f"""
+    <div class="study-plan-container">
+        <div class="study-plan-header">
+            🧠 AI Study Plan for: {assignment.get('name', 'Assignment')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Generate AI milestones if not already done
+    if f"milestones_{unique_id}" not in st.session_state:
+        agent = st.session_state.get('career_agent')
+        if not agent:
+            if 'career_agent' not in st.session_state:
+                st.session_state.career_agent = SecureFamilyCareerAgent()
+            agent = st.session_state.career_agent
+
+        with st.spinner("🤖 AI is creating your study plan..."):
+            due_date = assignment.get('parsed_due_date')
+            due_date_str = due_date.isoformat() if due_date else (datetime.now() + timedelta(days=7)).isoformat()
+
+            milestones = agent.generate_ai_study_plan(
+                assignment.get('name', 'Assignment'),
+                due_date_str,
+                assignment.get('description', '')
+            )
+            st.session_state[f"milestones_{unique_id}"] = milestones
+
+    milestones = st.session_state[f"milestones_{unique_id}"]
+
+    # Rest of the AI study planning interface (same as before)
+    st.markdown("#### Step 1: Select Study Milestones")
+
+    selected_milestones = []
+
+    for j, milestone in enumerate(milestones):
+        col1, col2, col3 = st.columns([1, 4, 2])
+
+        with col1:
+            selected = st.checkbox("Select", key=f"milestone_select_{unique_id}_{j}")
+
+        with col2:
+            edited_description = st.text_area(
+                "Description",
+                value=milestone.get('description', ''),
+                height=60,
+                key=f"milestone_desc_{unique_id}_{j}",
+                label_visibility="collapsed"
+            )
+
+        with col3:
+            try:
+                target_date_str = milestone.get('target_date', '')
+                if target_date_str:
+                    default_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+                else:
+                    default_date = datetime.now().date()
+            except:
+                default_date = datetime.now().date()
+
+            edited_date = st.date_input(
+                "Target Date",
+                value=default_date,
+                key=f"milestone_date_{unique_id}_{j}",
+                label_visibility="collapsed"
+            )
+
+        if selected:
+            selected_milestones.append({
+                "title": milestone.get('title', 'Milestone'),
+                "description": edited_description,
+                "target_date": str(edited_date)
+            })
+
+    # Add Custom Milestones
+    with st.expander("➕ Add Your Own Milestones"):
+        with st.form(f"custom_milestone_form_{unique_id}"):
+            custom_title = st.text_input("Milestone Title")
+            custom_description = st.text_area("Description")
+            custom_date = st.date_input("Target Date")
+
+            if st.form_submit_button("Add Custom Milestone"):
+                if custom_title:
+                    custom_milestone = {
+                        "title": custom_title,
+                        "description": custom_description,
+                        "target_date": str(custom_date)
+                    }
+                    if f"custom_milestones_{unique_id}" not in st.session_state:
+                        st.session_state[f"custom_milestones_{unique_id}"] = []
+                    st.session_state[f"custom_milestones_{unique_id}"].append(custom_milestone)
+                    st.success("✅ Custom milestone added!")
+
+    # Include custom milestones
+    if f"custom_milestones_{unique_id}" in st.session_state:
+        selected_milestones.extend(st.session_state[f"custom_milestones_{unique_id}"])
+
+    # Save Study Plan
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(f"💾 Save Study Plan ({len(selected_milestones)} milestones)",
+                     key=f"save_plan_{unique_id}", use_container_width=True):
+            if selected_milestones:
+                canvas = st.session_state.canvas_integrator
+                success = canvas.save_study_milestones(
+                    student['id'],
+                    assignment.get('assignment_id', f"assignment_dated_{assignment_index}"),
+                    assignment.get('name', 'Assignment'),
+                    selected_milestones
+                )
+
+                if success:
+                    st.session_state[f"saved_plan_{unique_id}"] = selected_milestones
+                    st.success(f"✅ Study plan saved with {len(selected_milestones)} milestones!")
+                else:
+                    st.error("Failed to save study plan")
+            else:
+                st.warning("Please select at least one milestone")
+
+    with col2:
+        if st.button("❌ Cancel", key=f"cancel_plan_{unique_id}",
+                     use_container_width=True, type="secondary"):
+            st.session_state[f"show_study_plan_{student['id']}_dated_{assignment_index}"] = False
+            st.rerun()
+
+    # Show saved study plan progress (same as before)
+    if st.session_state.get(f"saved_plan_{unique_id}"):
+        st.markdown("#### 📊 Your Study Plan Progress")
+
+        saved_plan = st.session_state[f"saved_plan_{unique_id}"]
+        completed_count = 0
+
+        for k, milestone in enumerate(saved_plan):
+            col1, col2 = st.columns([1, 5])
+
+            with col1:
+                completed = st.checkbox("Done", key=f"completed_{unique_id}_{k}",
+                                        value=st.session_state.get(f"completed_{unique_id}_{k}", False))
+                if completed:
+                    completed_count += 1
+
+            with col2:
+                milestone_class = "completed" if completed else ""
+                st.markdown(f"""
+                <div class="milestone-item {milestone_class}">
+                    <div class="milestone-title">{milestone.get('title', 'Milestone')}</div>
+                    <div class="milestone-description">{milestone.get('description', '')}</div>
+                    <div class="milestone-date">Target: {milestone.get('target_date', '')}</div>
                 </div>
-                <div class="assignment-details">
-                    📚 {assignment.get('course', 'Course')} | ⚠️ Processing issue
-                    <br>Please check this assignment in Canvas directly
-                </div>
+                """, unsafe_allow_html=True)
+
+        # Progress bar
+        progress = completed_count / len(saved_plan) if saved_plan else 0
+        st.markdown(f"""
+        <div class="progress-container">
+            <div class="progress-header">Progress: {completed_count}/{len(saved_plan)} milestones completed</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {progress * 100}%"></div>
             </div>
-            """, unsafe_allow_html=True)
-            continue
-
-
-# STEP 3: Add this new function for AI study planning with filtered assignments
-# (This is the same as your existing function but with "filtered" in the keys to avoid conflicts)
+        </div>
+        """, unsafe_allow_html=True)
 
 def show_ai_study_planning_filtered(student, assignment, assignment_index):
     """AI Study Planning Interface - For filtered assignments"""
@@ -1650,7 +1820,6 @@ def show_ai_study_planning_filtered(student, assignment, assignment_index):
         </div>
         """, unsafe_allow_html=True)
 
-
 def show_canvas_connection_form(student, canvas):
     """Canvas setup form"""
     st.markdown(f"""
@@ -1757,7 +1926,6 @@ def show_canvas_dashboard(student, canvas):
     # Show assignments
     show_assignments_list(student, canvas)
 
-
 def get_assignment_counts(student, canvas):
     """Get assignment counts for user feedback"""
     try:
@@ -1803,7 +1971,6 @@ def get_assignment_counts(student, canvas):
 
     except Exception:
         return "Assignment count unavailable"
-
 
 def show_assignment_filters(student):
     """Add filtering UI elements - Step 2: Real course data"""
