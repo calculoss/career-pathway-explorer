@@ -1459,6 +1459,7 @@ def show_simple_canvas_integration(student):
 
 def show_canvas_setup(student, canvas):
     """Canvas setup form"""
+
     st.markdown(f"""
     <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
         <h4>🔗 Connect {student['name']}'s Canvas Account</h4>
