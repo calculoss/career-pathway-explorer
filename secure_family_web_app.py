@@ -1510,9 +1510,9 @@ def show_canvas_setup(student, canvas):
                 if test_result['status'] == 'success':
                     # Save credentials
                     success = canvas.save_canvas_credentials(
-                        student['id'], canvas_url, access_token, test_result['user_name']
+                        student['id'], canvas_url, access_token,
+                        test_result['user_name'], test_result['user_id']
                     )
-
                     if success:
                         st.success(f"✅ **Canvas Connected Successfully!**\n\n{test_result['message']}")
 
@@ -1520,7 +1520,7 @@ def show_canvas_setup(student, canvas):
                         with st.spinner("Syncing assignments..."):
                             sync_result = canvas.sync_assignments(student['id'])
 
-                        if sync_result['success']:
+                        if sync_result['status'] == 'success':  # ✅ Correct
                             st.success(f"🎉 {sync_result['message']}")
                             st.balloons()
                             st.rerun()
