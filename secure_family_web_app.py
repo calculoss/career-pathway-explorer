@@ -1558,7 +1558,7 @@ def show_canvas_dashboard(student, canvas):
                     st.error(f"Sync failed: {sync_result['message']}")
 
     # Show assignments
-    show_assignments_table(student, canvas_integrator)
+    show_assignments_table(student, canvas)
 
 
 def show_assignments_table(student, canvas_integrator):
