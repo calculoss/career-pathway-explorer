@@ -1514,7 +1514,7 @@ def show_canvas_setup(student, canvas):
                         test_result['user_name'], test_result['user_id']
                     )
                     if success:
-                        st.success(f"✅ **Canvas Connected Successfully!**\n\n{test_result['message']}")
+                        st.success(f"✅ **Canvas Connected Successfully!**\n\nConnected as: {test_result['user_name']}")
 
                         # Initial sync
                         with st.spinner("Syncing assignments..."):
