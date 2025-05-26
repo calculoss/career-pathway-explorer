@@ -1459,6 +1459,13 @@ def show_simple_canvas_integration(student):
 
 def show_canvas_setup(student, canvas):
     """Canvas setup form"""
+    # DEBUG: Check what's happening
+    st.write(f"🔧 DEBUG - Student ID: {student['id']}")
+
+    credentials = canvas.get_canvas_credentials(student['id'])
+    st.write(f"🔧 DEBUG - Found credentials: {credentials is not None}")
+    if credentials:
+        st.write(f"🔧 DEBUG - Credentials: {credentials}")
 
     st.markdown(f"""
     <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
