@@ -14,6 +14,7 @@ import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from multi_family_database import MultiFamilyDatabase
+from canvas_integration import CanvasIntegrator, SimpleMilestoneGenerator, show_canvas_setup
 
 # Page configuration
 st.set_page_config(
@@ -1557,78 +1558,18 @@ def show_canvas_dashboard(student, canvas):
                     st.error(f"Sync failed: {sync_result['message']}")
 
     # Show assignments
-    show_assignments_table(student, canvas)
+    show_assignments_table(student, canvas_integrator)
 
 
-def show_assignments_table(student, canvas):
-    """Show assignments in a clean table"""
-    st.markdown("#### 📝 Your Canvas Assignments")
+def show_assignments_table(student, canvas_integrator):
+    """Show full Canvas integration with AI study planning and enhanced filtering"""
 
-    # Get assignments
-    assignments = canvas.get_student_assignments(student['id'])
+    # Initialize Canvas integrator if needed
+    if 'canvas_integrator' not in st.session_state:
+        st.session_state.canvas_integrator = CanvasIntegrator()
 
-    if not assignments:
-        st.info("No assignments found. Try syncing again or check if assignments have due dates in Canvas.")
-        return
-
-    # Create assignments display
-    for i, assignment in enumerate(assignments):
-        # Calculate urgency
-        try:
-            due_date = datetime.fromisoformat(assignment['due_date'])
-            days_until_due = (due_date - datetime.now()).days
-
-            if days_until_due < 0:
-                urgency = "🔴 Overdue"
-                urgency_class = "overdue"
-            elif days_until_due <= 2:
-                urgency = "🔴 Due Soon"
-                urgency_class = "due-soon"
-            elif days_until_due <= 7:
-                urgency = "🟡 This Week"
-                urgency_class = "due-week"
-            else:
-                urgency = "🟢 Future"
-                urgency_class = "future"
-
-            due_text = due_date.strftime('%d %b %Y')
-
-        except:
-            urgency = "⚪ No Date"
-            urgency_class = "no-date"
-            due_text = "No date"
-
-        # Assignment card
-        with st.container():
-            col1, col2 = st.columns([4, 1])
-
-            with col1:
-                # Canvas link
-                canvas_link = ""
-                if assignment.get('html_url'):
-                    canvas_link = f'<a href="{assignment["html_url"]}" target="_blank" style="color: #1c4980; text-decoration: none;">🔗</a> '
-
-                st.markdown(f"""
-                <div style="border-left: 4px solid {'#dc2626' if 'overdue' in urgency_class or 'soon' in urgency_class else '#16a34a'}; 
-                           padding: 12px; margin: 8px 0; background: #f9fafb; border-radius: 4px;">
-                    <div style="font-weight: 600; font-size: 16px;">
-                        {canvas_link}{assignment['name']} 
-                        <span style="font-size: 12px; font-weight: normal; color: #6b7280;">({assignment['type']})</span>
-                    </div>
-                    <div style="color: #6b7280; margin: 4px 0;">
-                        📚 {assignment['course']} • 📅 Due: {due_text} • 🎯 {assignment['points']} points
-                    </div>
-                    <div style="font-size: 12px; color: #374151; margin-top: 4px;">
-                        {urgency}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col2:
-                if st.button("🤖 Study Plan", key=f"plan_{i}", use_container_width=True):
-                    st.info("AI Study Planning feature coming soon!")
-
-    st.markdown(f"**Total:** {len(assignments)} assignments found")
+    # Use the full Canvas setup from canvas_integration.py
+    show_canvas_setup(student, st.session_state.canvas_integrator)
 
 
 def main():
