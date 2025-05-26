@@ -1399,7 +1399,7 @@ def show_canvas_dashboard(student, canvas):
 
 
 def show_assignments_list(student, canvas):
-    """Show assignments list with AI study planning"""
+    """Show assignments list with AI study planning - FIXED DATE PARSING"""
 
     st.markdown("### 📋 Upcoming Assignments & Exams")
 
@@ -1415,38 +1415,78 @@ def show_assignments_list(student, canvas):
 
     for i, assignment in enumerate(assignments[:10]):  # Limit to 10 assignments
         try:
-            # Calculate urgency
-            due_date = datetime.fromisoformat(assignment['due_date'])
-            days_until_due = (due_date - current_time).days
+            # FIXED: Robust date parsing
+            due_date = None
+            due_date_str = assignment.get('due_date')
 
-            if days_until_due < 0:
-                urgency_class = "overdue"
-                urgency_text = "OVERDUE"
-                urgency_badge_class = "urgency-overdue"
-            elif days_until_due <= 3:
-                urgency_class = "due-soon"
-                urgency_text = "DUE SOON"
-                urgency_badge_class = "urgency-soon"
-            else:
+            if due_date_str:
+                try:
+                    # Handle different date formats
+                    if isinstance(due_date_str, str):
+                        # Remove timezone info if present
+                        clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
+                        # Try different date formats
+                        try:
+                            due_date = datetime.fromisoformat(clean_date_str)
+                        except ValueError:
+                            try:
+                                due_date = datetime.strptime(clean_date_str, '%Y-%m-%d %H:%M:%S')
+                            except ValueError:
+                                try:
+                                    due_date = datetime.strptime(clean_date_str, '%Y-%m-%d')
+                                except ValueError:
+                                    due_date = None
+                    elif isinstance(due_date_str, datetime):
+                        due_date = due_date_str
+                except Exception:
+                    due_date = None
+
+            # If we couldn't parse the date, skip this assignment or use a default
+            if not due_date:
+                due_date = datetime.now() + timedelta(days=7)  # Default to 1 week from now
+                due_date_display = "Date TBD"
                 urgency_class = "future"
-                urgency_text = "FUTURE"
+                urgency_text = "DATE TBD"
                 urgency_badge_class = "urgency-future"
+            else:
+                due_date_display = due_date.strftime('%Y-%m-%d %H:%M')
+                days_until_due = (due_date - current_time).days
+
+                if days_until_due < 0:
+                    urgency_class = "overdue"
+                    urgency_text = "OVERDUE"
+                    urgency_badge_class = "urgency-overdue"
+                elif days_until_due <= 3:
+                    urgency_class = "due-soon"
+                    urgency_text = "DUE SOON"
+                    urgency_badge_class = "urgency-soon"
+                else:
+                    urgency_class = "future"
+                    urgency_text = "FUTURE"
+                    urgency_badge_class = "urgency-future"
 
             # Assignment container
             with st.container():
                 col1, col2 = st.columns([3, 1])
 
                 with col1:
+                    # Safe string handling for assignment details
+                    assignment_name = assignment.get('name', 'Untitled Assignment')
+                    course_name = assignment.get('course', 'Unknown Course')
+                    points = assignment.get('points', 0)
+                    assignment_type = assignment.get('type', 'Assignment')
+                    description = assignment.get('description', 'No description available')[:100]
+
                     st.markdown(f"""
                     <div class="assignment-row {urgency_class}">
                         <div class="assignment-name">
-                            {assignment['name']}
+                            {assignment_name}
                             <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
                         </div>
                         <div class="assignment-details">
-                            📚 {assignment['course']} | 📅 Due: {due_date.strftime('%Y-%m-%d %H:%M')} | 
-                            🎯 {assignment['points']} points | 📝 {assignment['type']}
-                            <br>{assignment['description'][:100]}...
+                            📚 {course_name} | 📅 Due: {due_date_display} | 
+                            🎯 {points} points | 📝 {assignment_type}
+                            <br>{description}...
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -1461,19 +1501,32 @@ def show_assignments_list(student, canvas):
                 show_ai_study_planning(student, assignment, i)
 
         except Exception as e:
-            st.error(f"Error displaying assignment: {str(e)}")
+            # Fallback display for problematic assignments
+            st.markdown(f"""
+            <div class="assignment-row future">
+                <div class="assignment-name">
+                    {assignment.get('name', 'Assignment')}
+                    <span class="urgency-badge urgency-future">NEEDS REVIEW</span>
+                </div>
+                <div class="assignment-details">
+                    📚 {assignment.get('course', 'Course')} | ⚠️ Date parsing issue
+                    <br>Please check this assignment in Canvas directly
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             continue
 
 
+# ALSO UPDATE THE AI STUDY PLANNING FUNCTION:
 def show_ai_study_planning(student, assignment, assignment_index):
-    """AI Study Planning Interface"""
+    """AI Study Planning Interface - FIXED DATE HANDLING"""
 
     unique_id = f"{student['id']}_{assignment_index}"
 
     st.markdown(f"""
     <div class="study-plan-container">
         <div class="study-plan-header">
-            🧠 AI Study Plan for: {assignment['name']}
+            🧠 AI Study Plan for: {assignment.get('name', 'Assignment')}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1487,10 +1540,15 @@ def show_ai_study_planning(student, assignment, assignment_index):
             agent = st.session_state.career_agent
 
         with st.spinner("🤖 AI is creating your study plan..."):
+            # FIXED: Safe date handling for AI generation
+            due_date_str = assignment.get('due_date', '')
+            if not due_date_str or due_date_str == 'Date TBD':
+                due_date_str = (datetime.now() + timedelta(days=7)).isoformat()
+
             milestones = agent.generate_ai_study_plan(
-                assignment['name'],
-                assignment['due_date'],
-                assignment['description']
+                assignment.get('name', 'Assignment'),
+                due_date_str,
+                assignment.get('description', '')
             )
             st.session_state[f"milestones_{unique_id}"] = milestones
 
@@ -1510,7 +1568,7 @@ def show_ai_study_planning(student, assignment, assignment_index):
         with col2:
             edited_description = st.text_area(
                 "Description",
-                value=milestone['description'],
+                value=milestone.get('description', ''),
                 height=60,
                 key=f"milestone_desc_{unique_id}_{j}",
                 label_visibility="collapsed"
@@ -1518,7 +1576,11 @@ def show_ai_study_planning(student, assignment, assignment_index):
 
         with col3:
             try:
-                default_date = datetime.strptime(milestone['target_date'], '%Y-%m-%d').date()
+                target_date_str = milestone.get('target_date', '')
+                if target_date_str:
+                    default_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+                else:
+                    default_date = datetime.now().date()
             except:
                 default_date = datetime.now().date()
 
@@ -1531,7 +1593,7 @@ def show_ai_study_planning(student, assignment, assignment_index):
 
         if selected:
             selected_milestones.append({
-                "title": milestone['title'],
+                "title": milestone.get('title', 'Milestone'),
                 "description": edited_description,
                 "target_date": str(edited_date)
             })
@@ -1570,8 +1632,8 @@ def show_ai_study_planning(student, assignment, assignment_index):
                 canvas = st.session_state.canvas_integrator
                 success = canvas.save_study_milestones(
                     student['id'],
-                    assignment['assignment_id'],
-                    assignment['name'],
+                    assignment.get('assignment_id', f"assignment_{assignment_index}"),
+                    assignment.get('name', 'Assignment'),
                     selected_milestones
                 )
 
@@ -1609,9 +1671,9 @@ def show_ai_study_planning(student, assignment, assignment_index):
                 milestone_class = "completed" if completed else ""
                 st.markdown(f"""
                 <div class="milestone-item {milestone_class}">
-                    <div class="milestone-title">{milestone['title']}</div>
-                    <div class="milestone-description">{milestone['description']}</div>
-                    <div class="milestone-date">Target: {milestone['target_date']}</div>
+                    <div class="milestone-title">{milestone.get('title', 'Milestone')}</div>
+                    <div class="milestone-description">{milestone.get('description', '')}</div>
+                    <div class="milestone-date">Target: {milestone.get('target_date', '')}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
