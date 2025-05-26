@@ -1346,7 +1346,7 @@ def show_assignments_list(student, canvas):
             # Apply TIME filter
             if due_date:
                 days_until_due = (due_date - current_time).days
-                if days_until_due > days_filter:
+                if days_until_due > days_filter or days_until_due < -30:
                     continue  # Skip assignments too far in the future
 
             # Apply COURSE filter
