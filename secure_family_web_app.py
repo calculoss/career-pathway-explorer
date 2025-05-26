@@ -1470,7 +1470,6 @@ def show_canvas_setup(student, canvas):
         # Not connected - show connection form
         show_canvas_connection_form(student, canvas)
 
-
 def show_canvas_connection_form(student, canvas):
     """Canvas setup form"""
     st.markdown(f"""
@@ -1480,8 +1479,70 @@ def show_canvas_connection_form(student, canvas):
     </div>
     """, unsafe_allow_html=True)
 
-    # Your existing connection form code here...
-    # (all the form code you currently have in show_canvas_setup)
+    # Instructions
+    with st.expander("📋 How to get your Canvas access token", expanded=False):
+        st.markdown("""
+        **Step-by-step instructions:**
+
+        1. **Log into Canvas** (your school's Canvas site)
+        2. **Click your profile picture** → **Settings**
+        3. **Scroll to "Approved Integrations"**
+        4. **Click "+ New Access Token"**
+        5. **Purpose:** Enter "Family Career App"
+        6. **Click "Generate Token"**
+        7. **Copy the token** and paste below
+
+        ⚠️ **Keep your token private** - don't share it with anyone!
+        """)
+
+    # Connection form
+    with st.form(f"canvas_setup_{student['id']}"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            canvas_url = st.text_input(
+                "Canvas URL",
+                placeholder="https://your-school.instructure.com",
+                help="Your school's Canvas website"
+            )
+
+        with col2:
+            access_token = st.text_input(
+                "Access Token",
+                type="password",
+                help="Token from Canvas → Settings → Approved Integrations"
+            )
+
+        submitted = st.form_submit_button("🔗 Connect Canvas", use_container_width=True)
+
+        if submitted and canvas_url and access_token:
+            with st.spinner("Testing Canvas connection..."):
+                # Test connection
+                test_result = canvas.test_canvas_connection(canvas_url, access_token)
+
+                if test_result['status'] == 'success':
+                    # Save credentials
+                    success = canvas.save_canvas_credentials(
+                        student['id'], canvas_url, access_token,
+                        test_result['user_name'], test_result['user_id']
+                    )
+                    if success:
+                        st.success(f"✅ **Canvas Connected Successfully!**\n\nConnected as: {test_result['user_name']}")
+
+                        # Initial sync
+                        with st.spinner("Syncing assignments..."):
+                            sync_result = canvas.sync_assignments(student['id'])
+
+                        if sync_result['status'] == 'success':  # ✅ Correct
+                            st.success(f"🎉 {sync_result['message']}")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.warning(f"Canvas connected but sync had issues: {sync_result['message']}")
+                    else:
+                        st.error("Failed to save Canvas credentials")
+                else:
+                    st.error(f"❌ **Connection Failed:** {test_result['message']}")
 
 
 def show_canvas_dashboard(student, canvas):
