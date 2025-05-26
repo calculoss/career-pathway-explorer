@@ -1198,7 +1198,8 @@ def create_comprehensive_family_interface(family_info):
         create_career_guidance_tab(selected_student, family_info)
 
     with tab2:
-        create_canvas_integration_tab(selected_student)
+        #create_canvas_integration_tab(selected_student)
+        create_canvas_integration_tab_debug(selected_student)
 
     with tab3:
         create_progress_tab(selected_student)
@@ -1871,6 +1872,176 @@ def show_assignment_filters(student):
     return days_filter, course_filter
 
 
+# DEBUG VERSION: Add this temporary debug function to see what's happening
+
+def show_assignments_list_debug(student, canvas):
+    """DEBUG VERSION: Show assignments list with debug output"""
+
+    # Get filter values
+    days_filter, course_filter = show_assignment_filters(student)
+
+    # DEBUG: Show what filters we got
+    st.write(f"🔍 DEBUG: Days filter = {days_filter}, Course filter = '{course_filter}'")
+
+    # Get assignments from database
+    assignments = canvas.get_student_assignments(student['id'])
+
+    if not assignments:
+        st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
+        return
+
+    # DEBUG: Show total assignments before filtering
+    st.write(f"🔍 DEBUG: Total assignments from database = {len(assignments)}")
+
+    # Show first few assignments for debugging
+    st.write("🔍 DEBUG: First 3 assignments:")
+    for i, assignment in enumerate(assignments[:3]):
+        st.write(
+            f"  - {assignment.get('name', 'No name')} | Course: '{assignment.get('course', 'No course')}' | Due: {assignment.get('due_date', 'No date')}")
+
+    # APPLY FILTERS HERE
+    current_time = datetime.now()
+    filtered_assignments = []
+
+    st.write(f"🔍 DEBUG: Starting filtering loop...")
+
+    for i, assignment in enumerate(assignments):
+        try:
+            assignment_name = assignment.get('name', 'No name')
+
+            # Parse due date for time filtering
+            due_date = None
+            due_date_str = assignment.get('due_date')
+
+            if due_date_str:
+                try:
+                    if isinstance(due_date_str, str):
+                        clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
+                        due_date = datetime.fromisoformat(clean_date_str)
+                except Exception:
+                    due_date = None
+
+            # DEBUG: Show date parsing result
+            if i < 3:  # Only debug first 3
+                st.write(f"🔍 DEBUG: Assignment '{assignment_name}' - Parsed date: {due_date}")
+
+            # Apply TIME filter
+            time_filter_passed = True
+            if due_date:
+                days_until_due = (due_date - current_time).days
+                if days_until_due > days_filter:
+                    time_filter_passed = False
+                    if i < 3:
+                        st.write(
+                            f"🔍 DEBUG: '{assignment_name}' FILTERED OUT by time ({days_until_due} days > {days_filter})")
+                else:
+                    if i < 3:
+                        st.write(
+                            f"🔍 DEBUG: '{assignment_name}' PASSED time filter ({days_until_due} days <= {days_filter})")
+            else:
+                if i < 3:
+                    st.write(f"🔍 DEBUG: '{assignment_name}' PASSED time filter (no due date)")
+
+            if not time_filter_passed:
+                continue
+
+            # Apply COURSE filter
+            course_filter_passed = True
+            if course_filter != "All Courses":
+                assignment_course = assignment.get('course', 'Unknown Course')
+                if assignment_course != course_filter:
+                    course_filter_passed = False
+                    if i < 3:
+                        st.write(
+                            f"🔍 DEBUG: '{assignment_name}' FILTERED OUT by course ('{assignment_course}' != '{course_filter}')")
+                else:
+                    if i < 3:
+                        st.write(f"🔍 DEBUG: '{assignment_name}' PASSED course filter")
+            else:
+                if i < 3:
+                    st.write(f"🔍 DEBUG: '{assignment_name}' PASSED course filter (All Courses selected)")
+
+            if not course_filter_passed:
+                continue
+
+            # If we get here, the assignment passed all filters
+            filtered_assignments.append(assignment)
+            if i < 3:
+                st.write(f"🔍 DEBUG: '{assignment_name}' ADDED to filtered list")
+
+        except Exception as e:
+            st.write(f"🔍 DEBUG: Error processing assignment {i}: {e}")
+            filtered_assignments.append(assignment)
+
+    # DEBUG: Show filtering results
+    st.write(f"🔍 DEBUG: Filtered assignments count = {len(filtered_assignments)}")
+
+    # Show filter results summary
+    total_assignments = len(assignments)
+    filtered_count = len(filtered_assignments)
+
+    if course_filter == "All Courses":
+        course_text = "all courses"
+    else:
+        course_text = f'"{course_filter}"'
+
+    st.caption(
+        f"📊 Showing {filtered_count} of {total_assignments} assignments from {course_text} due within {days_filter} days")
+
+    if not filtered_assignments:
+        st.info(
+            f"📅 No assignments found matching your filters. Try selecting a longer time period or different course.")
+        return
+
+    # Just show a simple list for now (no complex UI)
+    st.write("🔍 DEBUG: Assignments that passed filters:")
+    for i, assignment in enumerate(filtered_assignments):
+        st.write(f"  {i + 1}. {assignment.get('name', 'No name')} - {assignment.get('course', 'No course')}")
+
+
+# TEMPORARY: Update your Canvas integration tab to use the debug version
+def create_canvas_integration_tab_debug(student):
+    """Canvas integration with DEBUG version"""
+
+    if 'canvas_integrator' not in st.session_state:
+        st.session_state.canvas_integrator = CanvasIntegrator()
+
+    canvas = st.session_state.canvas_integrator
+
+    st.markdown("### 🎓 Canvas LMS Integration")
+
+    if canvas.has_canvas_credentials(student['id']):
+        show_canvas_dashboard_debug(student, canvas)
+    else:
+        show_canvas_connection_form(student, canvas)
+
+
+def show_canvas_dashboard_debug(student, canvas):
+    """Canvas dashboard with DEBUG version"""
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown(f"""
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+            <h4>📚 Canvas Connected (DEBUG MODE)</h4>
+            <p><strong>{student['name']}</strong> • Canvas integration active</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        if st.button("🔄 Sync Now", use_container_width=True, key=f"sync_button_debug_{student['id']}"):
+            with st.spinner("Syncing Canvas data..."):
+                sync_result = canvas.sync_assignments(student['id'])
+
+                if sync_result['success']:
+                    st.success(sync_result['message'])
+                    st.rerun()
+                else:
+                    st.error(f"Sync failed: {sync_result['message']}")
+
+    # Use debug version
+    show_assignments_list_debug(student, canvas)
 
 
 
