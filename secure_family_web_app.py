@@ -1527,7 +1527,6 @@ def get_assignment_counts(student, canvas):
         if not assignments:
             return "No assignments found"
 
-        # Count assignments by status
         current_time = datetime.now()
         overdue = 0
         due_soon = 0
@@ -1550,24 +1549,22 @@ def get_assignment_counts(student, canvas):
                         future += 1
             except:
                 future += 1
-    except:
-        future += 1
 
-    status_parts = []
-    if overdue > 0:
-        status_parts.append(f"{overdue} overdue")
-    if due_soon > 0:
-        status_parts.append(f"{due_soon} due soon")
-    if future > 0:
-        status_parts.append(f"{future} future")
+        status_parts = []
+        if overdue > 0:
+            status_parts.append(f"{overdue} overdue")
+        if due_soon > 0:
+            status_parts.append(f"{due_soon} due soon")
+        if future > 0:
+            status_parts.append(f"{future} future")
 
-    if status_parts:
-        return f"Total: {total} assignments ({', '.join(status_parts)})"
-    else:
-        return f"Total: {total} assignments"
+        if status_parts:
+            return f"Total: {total} assignments ({', '.join(status_parts)})"
+        else:
+            return f"Total: {total} assignments"
 
     except Exception:
-    return "Assignment count unavailable"
+        return "Assignment count unavailable"
 
 
 def show_assignment_filters(student):
