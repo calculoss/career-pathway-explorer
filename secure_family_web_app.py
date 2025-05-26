@@ -1398,10 +1398,56 @@ def show_canvas_dashboard(student, canvas):
     show_assignments_list(student, canvas)
 
 
+# STEP 1: Add this function to your file (around line 850, before show_assignments_list)
+
+def show_assignment_filters(student):
+    """Add filtering UI elements - Step 1: UI only, no logic yet"""
+
+    st.markdown("### 📋 Upcoming Assignments")
+
+    # Filter row
+    col1, col2, col3 = st.columns([2, 2, 1])
+
+    with col1:
+        # Time filter dropdown
+        days_filter = st.selectbox(
+            "Show assignments due in:",
+            options=[7, 14, 30, 60, 90, 365],
+            index=3,  # Default to 60 days
+            format_func=lambda x: f"{x} days",
+            key=f"days_filter_{student['id']}"
+        )
+
+    with col2:
+        # Course filter dropdown - we'll populate this with actual courses later
+        course_filter = st.selectbox(
+            "Filter by course:",
+            options=["All Courses", "Loading courses..."],
+            index=0,
+            key=f"course_filter_{student['id']}"
+        )
+
+    with col3:
+        # Refresh button
+        if st.button("🔄 Refresh", key=f"refresh_assignments_{student['id']}", use_container_width=True):
+            st.rerun()
+
+    # Store filter values in session state for later use
+    st.session_state[f"days_filter_value_{student['id']}"] = days_filter
+    st.session_state[f"course_filter_value_{student['id']}"] = course_filter
+
+    # Add a separator
+    st.markdown("---")
+
+    return days_filter, course_filter
+
+
+
 def show_assignments_list(student, canvas):
     """Show assignments list with AI study planning - FIXED DATE PARSING"""
+    days_filter, course_filter = show_assignment_filters(student)
+    # TODO: Apply filters in Step 2
 
-    st.markdown("### 📋 Upcoming Assignments & Exams")
 
     # Get assignments from database
     assignments = canvas.get_student_assignments(student['id'])
