@@ -1465,7 +1465,7 @@ def show_canvas_setup(student, canvas):
 
     if credentials:
         # Already connected - show dashboard
-        show_canvas_dashboard(student, canvas, credentials)
+        show_canvas_dashboard(student, canvas)
     else:
         # Not connected - show connection form
         show_canvas_connection_form(student, canvas)
