@@ -1977,32 +1977,25 @@ def get_assignment_counts(student, canvas):
 
 
 def categorize_assignment(assignment):
-    """Categorize assignment by type based on name and content"""
+    """Categorize assignment by type based on name and content - FIXED VERSION"""
 
     name = assignment.get('name', '').upper()
     assignment_type = assignment.get('type', '').upper()
 
-    # Assessment Tasks - the real assignments students need to work on
+    # Course Materials - documents, syllabi, etc. (CHECK FIRST)
     if (
-            ('ASSESSMENT TASK' in name and 'REGISTER OF RECEIPT' not in name) or
-            name.startswith('⭐') or
-            ('ASSIGNMENT' in name and 'REGISTER' not in name) or
-            ('PROJECT' in name) or
-            ('ESSAY' in name) or
-            ('REPORT' in name and 'REGISTER' not in name) or
-            ('INVESTIGATION' in name) or
-            ('CAMPAIGN' in name and 'REGISTER' not in name)
-    ):
-        return "Assessment Tasks"
-
-    # Course Materials - documents, syllabi, etc.
-    elif (
             'REGISTER OF RECEIPT' in name or
             'COURSE DOCUMENTS' in name or
             'SYLLABUS' in name or
             'SCOPE AND SEQUENCE' in name or
             'ASSESSMENT SCHEDULE' in name or
-            'REFLECTION' in name
+            'REFLECTION' in name or
+            'DRAFT' in name or  # NEW: Draft submissions
+            'SUBMISSION' in name or  # NEW: Submissions
+            'INTERVIEW' in name or  # NEW: Progress interviews
+            'PROGRESS' in name or  # NEW: Progress reports
+            'CHECK' in name or  # NEW: Check-ins
+            'SURVEY' in name  # NEW: Surveys
     ):
         return "Course Materials"
 
@@ -2010,15 +2003,29 @@ def categorize_assignment(assignment):
     elif (
             'QUIZ' in name or
             'TEST' in name or
-            'CHECK' in name or
-            'CQ' in name or  # Check questions
+            'CQ' in name or  # Check questions like "CQ2.1: Describe..."
             assignment_type == 'QUIZ'
     ):
         return "Quizzes & Tests"
 
-    # Default to Assessment Tasks if unsure (better to show than hide)
-    else:
+    # Assessment Tasks - the real assignments students need to work on (MORE RESTRICTIVE)
+    elif (
+            ('ASSESSMENT TASK' in name and 'REGISTER OF RECEIPT' not in name) or
+            name.startswith('⭐') or
+            ('ASSIGNMENT' in name and 'REGISTER' not in name and 'DRAFT' not in name) or
+            ('PROJECT' in name) or
+            ('ESSAY' in name and 'DRAFT' not in name) or
+            ('REPORT' in name and 'REGISTER' not in name and 'DRAFT' not in name) or
+            ('INVESTIGATION' in name) or
+            ('CAMPAIGN' in name and 'REGISTER' not in name) or
+            ('ANALYSIS' in name and 'DRAFT' not in name) or  # NEW: Analysis tasks
+            ('WRITING TASK' in name and 'DRAFT' not in name)  # NEW: Writing tasks
+    ):
         return "Assessment Tasks"
+
+    # Default to Course Materials for unknown items (SAFER DEFAULT)
+    else:
+        return "Course Materials"
 
 
 def show_assignment_filters(student):
