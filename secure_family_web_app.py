@@ -1273,7 +1273,6 @@ def create_career_guidance_tab(student, family_info):
         else:
             st.warning("Please enter a question before submitting.")
 
-
 def create_canvas_integration_tab(student):
     """Canvas integration with AI study planning"""
 
@@ -1291,16 +1290,11 @@ def create_canvas_integration_tab(student):
     else:
         show_canvas_connection_form(student, canvas)
 
-
-# STEP 3: Replace your show_assignments_list function with this version that actually filters
-
-# FIXED VERSION: Replace your show_assignments_list function with this
-
 def show_assignments_list(student, canvas):
     """Show assignments list with FIXED filtering - only shows assignments with due dates"""
 
     # Get filter values
-    days_filter, course_filter = show_assignment_filters(student)
+    days_filter, course_filter, type_filter = show_assignment_filters(student)
 
     # Get assignments from database
     assignments = canvas.get_student_assignments(student['id'])
@@ -1354,6 +1348,17 @@ def show_assignments_list(student, canvas):
                 assignment_course = assignment.get('course', 'Unknown Course')
                 if assignment_course != course_filter:
                     continue  # Skip assignments not matching the selected course
+
+            # NEW: Apply ASSIGNMENT TYPE filter
+            assignment_category = categorize_assignment(assignment)
+
+            if type_filter == "Assessment Tasks Only" and assignment_category != "Assessment Tasks":
+                continue
+            elif type_filter == "Quizzes & Tests" and assignment_category != "Quizzes & Tests":
+                continue
+            elif type_filter == "Course Materials" and assignment_category != "Course Materials":
+                continue
+            # "All Items" shows everything, so no filtering needed
 
             # If we get here, the assignment passed all filters
             filtered_assignments.append(assignment)
@@ -1445,8 +1450,7 @@ def show_assignments_list(student, canvas):
                 st.error(f"Error displaying assignment: {str(e)}")
                 continue
     else:
-        st.info(
-            f"📅 No assignments with due dates found matching your filters. Try selecting a longer time period or different course.")
+        st.info(f"📅 No {type_filter.lower()} found matching your filters. Try selecting a different type or longer time period.")
 
     # Optional: Show assignments without due dates in a collapsible section
     if total_without_dates > 0:
@@ -1897,7 +1901,6 @@ def show_canvas_connection_form(student, canvas):
                 else:
                     st.error(f"❌ **Connection Failed:** {test_result['message']}")
 
-
 def show_canvas_dashboard(student, canvas):
     """Canvas dashboard for connected student"""
 
@@ -1972,8 +1975,54 @@ def get_assignment_counts(student, canvas):
     except Exception:
         return "Assignment count unavailable"
 
+
+def categorize_assignment(assignment):
+    """Categorize assignment by type based on name and content"""
+
+    name = assignment.get('name', '').upper()
+    assignment_type = assignment.get('type', '').upper()
+
+    # Assessment Tasks - the real assignments students need to work on
+    if (
+            ('ASSESSMENT TASK' in name and 'REGISTER OF RECEIPT' not in name) or
+            name.startswith('⭐') or
+            ('ASSIGNMENT' in name and 'REGISTER' not in name) or
+            ('PROJECT' in name) or
+            ('ESSAY' in name) or
+            ('REPORT' in name and 'REGISTER' not in name) or
+            ('INVESTIGATION' in name) or
+            ('CAMPAIGN' in name and 'REGISTER' not in name)
+    ):
+        return "Assessment Tasks"
+
+    # Course Materials - documents, syllabi, etc.
+    elif (
+            'REGISTER OF RECEIPT' in name or
+            'COURSE DOCUMENTS' in name or
+            'SYLLABUS' in name or
+            'SCOPE AND SEQUENCE' in name or
+            'ASSESSMENT SCHEDULE' in name or
+            'REFLECTION' in name
+    ):
+        return "Course Materials"
+
+    # Quizzes & Tests - smaller assessments
+    elif (
+            'QUIZ' in name or
+            'TEST' in name or
+            'CHECK' in name or
+            'CQ' in name or  # Check questions
+            assignment_type == 'QUIZ'
+    ):
+        return "Quizzes & Tests"
+
+    # Default to Assessment Tasks if unsure (better to show than hide)
+    else:
+        return "Assessment Tasks"
+
+
 def show_assignment_filters(student):
-    """Add filtering UI elements - Step 2: Real course data"""
+    """Add filtering UI elements - WITH ASSIGNMENT TYPE FILTER"""
 
     st.markdown("### 📋 Upcoming Assignments")
 
@@ -1993,13 +2042,13 @@ def show_assignment_filters(student):
         sorted_courses = ["All Courses"] + sorted(list(course_names))
 
         # If no courses found, show default
-        if len(sorted_courses) == 1:  # Only "All Courses"
+        if len(sorted_courses) == 1:
             sorted_courses = ["All Courses", "No courses found"]
     else:
         sorted_courses = ["All Courses", "Canvas not connected"]
 
-    # Filter row
-    col1, col2, col3 = st.columns([2, 2, 1])
+    # Filter row - NOW WITH 3 COLUMNS
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
 
     with col1:
         # Time filter dropdown
@@ -2021,6 +2070,20 @@ def show_assignment_filters(student):
         )
 
     with col3:
+        # NEW: Assignment type filter
+        type_filter = st.selectbox(
+            "Assignment type:",
+            options=[
+                "Assessment Tasks Only",  # Default - real assignments
+                "All Items",
+                "Quizzes & Tests",
+                "Course Materials"
+            ],
+            index=0,  # Default to Assessment Tasks Only
+            key=f"type_filter_{student['id']}"
+        )
+
+    with col4:
         # Refresh button
         if st.button("🔄 Refresh", key=f"refresh_assignments_{student['id']}", use_container_width=True):
             st.rerun()
@@ -2028,15 +2091,16 @@ def show_assignment_filters(student):
     # Store filter values in session state for later use
     st.session_state[f"days_filter_value_{student['id']}"] = days_filter
     st.session_state[f"course_filter_value_{student['id']}"] = course_filter
+    st.session_state[f"type_filter_value_{student['id']}"] = type_filter
 
-    # Show filter summary for debugging (you can remove this later)
+    # Show filter summary
     if len(sorted_courses) > 2:  # More than just "All Courses" and fallback
-        st.caption(f"📊 Found {len(sorted_courses) - 1} courses • Showing assignments due in {days_filter} days")
+        st.caption(f"📊 Found {len(sorted_courses) - 1} courses • {type_filter} • Due within {days_filter} days")
 
     # Add a separator
     st.markdown("---")
 
-    return days_filter, course_filter
+    return days_filter, course_filter, type_filter
 
 
 # DEBUG VERSION: Add this temporary debug function to see what's happening
