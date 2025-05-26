@@ -1290,159 +1290,6 @@ def create_canvas_integration_tab(student):
     else:
         show_canvas_connection_form(student, canvas)
 
-
-def show_canvas_connection_form(student, canvas):
-    """Canvas setup form"""
-    st.markdown(f"""
-    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
-        <h4>🔗 Connect {student['name']}'s Canvas Account</h4>
-        <p>Automatically sync assignments and due dates from Canvas.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Instructions
-    with st.expander("📋 How to get your Canvas access token", expanded=False):
-        st.markdown("""
-        **Step-by-step instructions:**
-
-        1. **Log into Canvas** (your school's Canvas site)
-        2. **Click your profile picture** → **Settings**
-        3. **Scroll to "Approved Integrations"**
-        4. **Click "+ New Access Token"**
-        5. **Purpose:** Enter "Family Career App"
-        6. **Click "Generate Token"**
-        7. **Copy the token** and paste below
-
-        ⚠️ **Keep your token private** - don't share it with anyone!
-        """)
-
-    # Connection form
-    with st.form(f"canvas_setup_form_{student['id']}"):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            canvas_url = st.text_input(
-                "Canvas URL",
-                placeholder="https://your-school.instructure.com",
-                help="Your school's Canvas website",
-                key=f"canvas_url_{student['id']}"
-            )
-
-        with col2:
-            access_token = st.text_input(
-                "Access Token",
-                type="password",
-                help="Token from Canvas → Settings → Approved Integrations",
-                key=f"canvas_token_{student['id']}"
-            )
-
-        submitted = st.form_submit_button("🔗 Connect Canvas", use_container_width=True)
-
-        if submitted and canvas_url and access_token:
-            with st.spinner("Testing Canvas connection..."):
-                # Test connection
-                test_result = canvas.test_canvas_connection(canvas_url, access_token)
-
-                if test_result['success']:
-                    # Save credentials
-                    success = canvas.save_canvas_credentials(
-                        student['id'], canvas_url, access_token,
-                        test_result['user_name'], test_result['user_id']
-                    )
-
-                    if success:
-                        st.success(f"✅ **Canvas Connected Successfully!**\n\nConnected as: {test_result['user_name']}")
-
-                        # Initial sync
-                        with st.spinner("Syncing assignments..."):
-                            sync_result = canvas.sync_assignments(student['id'])
-
-                        if sync_result['success']:
-                            st.success(f"🎉 {sync_result['message']}")
-                            st.balloons()
-                            st.rerun()
-                        else:
-                            st.warning(f"Canvas connected but sync had issues: {sync_result['message']}")
-                    else:
-                        st.error("Failed to save Canvas credentials")
-                else:
-                    st.error(f"❌ **Connection Failed:** {test_result['message']}")
-
-
-def show_canvas_dashboard(student, canvas):
-    """Canvas dashboard for connected student"""
-
-    # Dashboard header
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.markdown(f"""
-        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
-            <h4>📚 Canvas Connected</h4>
-            <p><strong>{student['name']}</strong> • Canvas integration active</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        if st.button("🔄 Sync Now", use_container_width=True, key=f"sync_button_{student['id']}"):
-            with st.spinner("Syncing Canvas data..."):
-                sync_result = canvas.sync_assignments(student['id'])
-
-                if sync_result['success']:
-                    st.success(sync_result['message'])
-                    st.rerun()
-                else:
-                    st.error(f"Sync failed: {sync_result['message']}")
-
-    # Show assignments
-    show_assignments_list(student, canvas)
-
-
-# STEP 1: Add this function to your file (around line 850, before show_assignments_list)
-
-def show_assignment_filters(student):
-    """Add filtering UI elements - Step 1: UI only, no logic yet"""
-
-    st.markdown("### 📋 Upcoming Assignments")
-
-    # Filter row
-    col1, col2, col3 = st.columns([2, 2, 1])
-
-    with col1:
-        # Time filter dropdown
-        days_filter = st.selectbox(
-            "Show assignments due in:",
-            options=[7, 14, 30, 60, 90, 365],
-            index=3,  # Default to 60 days
-            format_func=lambda x: f"{x} days",
-            key=f"days_filter_{student['id']}"
-        )
-
-    with col2:
-        # Course filter dropdown - we'll populate this with actual courses later
-        course_filter = st.selectbox(
-            "Filter by course:",
-            options=["All Courses", "Loading courses..."],
-            index=0,
-            key=f"course_filter_{student['id']}"
-        )
-
-    with col3:
-        # Refresh button
-        if st.button("🔄 Refresh", key=f"refresh_assignments_{student['id']}", use_container_width=True):
-            st.rerun()
-
-    # Store filter values in session state for later use
-    st.session_state[f"days_filter_value_{student['id']}"] = days_filter
-    st.session_state[f"course_filter_value_{student['id']}"] = course_filter
-
-    # Add a separator
-    st.markdown("---")
-
-    return days_filter, course_filter
-
-
-
 def show_assignments_list(student, canvas):
     """Show assignments list with AI study planning - FIXED DATE PARSING"""
     days_filter, course_filter = show_assignment_filters(student)
@@ -1451,6 +1298,9 @@ def show_assignments_list(student, canvas):
 
     # Get assignments from database
     assignments = canvas.get_student_assignments(student['id'])
+    if assignments:
+        assignment_summary = get_assignment_counts(student, canvas)
+        st.caption(f"📈 {assignment_summary}")
 
     if not assignments:
         st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
@@ -1561,6 +1411,233 @@ def show_assignments_list(student, canvas):
             </div>
             """, unsafe_allow_html=True)
             continue
+
+
+def show_canvas_connection_form(student, canvas):
+    """Canvas setup form"""
+    st.markdown(f"""
+    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
+        <h4>🔗 Connect {student['name']}'s Canvas Account</h4>
+        <p>Automatically sync assignments and due dates from Canvas.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Instructions
+    with st.expander("📋 How to get your Canvas access token", expanded=False):
+        st.markdown("""
+        **Step-by-step instructions:**
+
+        1. **Log into Canvas** (your school's Canvas site)
+        2. **Click your profile picture** → **Settings**
+        3. **Scroll to "Approved Integrations"**
+        4. **Click "+ New Access Token"**
+        5. **Purpose:** Enter "Family Career App"
+        6. **Click "Generate Token"**
+        7. **Copy the token** and paste below
+
+        ⚠️ **Keep your token private** - don't share it with anyone!
+        """)
+
+    # Connection form
+    with st.form(f"canvas_setup_form_{student['id']}"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            canvas_url = st.text_input(
+                "Canvas URL",
+                placeholder="https://your-school.instructure.com",
+                help="Your school's Canvas website",
+                key=f"canvas_url_{student['id']}"
+            )
+
+        with col2:
+            access_token = st.text_input(
+                "Access Token",
+                type="password",
+                help="Token from Canvas → Settings → Approved Integrations",
+                key=f"canvas_token_{student['id']}"
+            )
+
+        submitted = st.form_submit_button("🔗 Connect Canvas", use_container_width=True)
+
+        if submitted and canvas_url and access_token:
+            with st.spinner("Testing Canvas connection..."):
+                # Test connection
+                test_result = canvas.test_canvas_connection(canvas_url, access_token)
+
+                if test_result['success']:
+                    # Save credentials
+                    success = canvas.save_canvas_credentials(
+                        student['id'], canvas_url, access_token,
+                        test_result['user_name'], test_result['user_id']
+                    )
+
+                    if success:
+                        st.success(f"✅ **Canvas Connected Successfully!**\n\nConnected as: {test_result['user_name']}")
+
+                        # Initial sync
+                        with st.spinner("Syncing assignments..."):
+                            sync_result = canvas.sync_assignments(student['id'])
+
+                        if sync_result['success']:
+                            st.success(f"🎉 {sync_result['message']}")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.warning(f"Canvas connected but sync had issues: {sync_result['message']}")
+                    else:
+                        st.error("Failed to save Canvas credentials")
+                else:
+                    st.error(f"❌ **Connection Failed:** {test_result['message']}")
+
+
+def show_canvas_dashboard(student, canvas):
+    """Canvas dashboard for connected student"""
+
+    # Dashboard header
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown(f"""
+        <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;">
+            <h4>📚 Canvas Connected</h4>
+            <p><strong>{student['name']}</strong> • Canvas integration active</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        if st.button("🔄 Sync Now", use_container_width=True, key=f"sync_button_{student['id']}"):
+            with st.spinner("Syncing Canvas data..."):
+                sync_result = canvas.sync_assignments(student['id'])
+
+                if sync_result['success']:
+                    st.success(sync_result['message'])
+                    st.rerun()
+                else:
+                    st.error(f"Sync failed: {sync_result['message']}")
+
+    # Show assignments
+    show_assignments_list(student, canvas)
+
+
+def get_assignment_counts(student, canvas):
+    """Get assignment counts for user feedback"""
+    try:
+        assignments = canvas.get_student_assignments(student['id'])
+        if not assignments:
+            return "No assignments found"
+
+        # Count assignments by status
+        current_time = datetime.now()
+        overdue = 0
+        due_soon = 0
+        future = 0
+        total = len(assignments)
+
+        for assignment in assignments:
+            try:
+                due_date_str = assignment.get('due_date')
+                if due_date_str and isinstance(due_date_str, str):
+                    clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
+                    due_date = datetime.fromisoformat(clean_date_str)
+                    days_until_due = (due_date - current_time).days
+
+                    if days_until_due < 0:
+                        overdue += 1
+                    elif days_until_due <= 3:
+                        due_soon += 1
+                    else:
+                        future += 1
+            except:
+                future += 1
+    except:
+        future += 1
+
+    status_parts = []
+    if overdue > 0:
+        status_parts.append(f"{overdue} overdue")
+    if due_soon > 0:
+        status_parts.append(f"{due_soon} due soon")
+    if future > 0:
+        status_parts.append(f"{future} future")
+
+    if status_parts:
+        return f"Total: {total} assignments ({', '.join(status_parts)})"
+    else:
+        return f"Total: {total} assignments"
+
+    except Exception:
+    return "Assignment count unavailable"
+
+
+def show_assignment_filters(student):
+    """Add filtering UI elements - Step 2: Real course data"""
+
+    st.markdown("### 📋 Upcoming Assignments")
+
+    # Get assignments to extract course names
+    if 'canvas_integrator' in st.session_state:
+        canvas = st.session_state.canvas_integrator
+        assignments = canvas.get_student_assignments(student['id'])
+
+        # Extract unique course names
+        course_names = set()
+        for assignment in assignments:
+            course_name = assignment.get('course', 'Unknown Course')
+            if course_name and course_name.strip():
+                course_names.add(course_name)
+
+        # Sort course names and add "All Courses" at the beginning
+        sorted_courses = ["All Courses"] + sorted(list(course_names))
+
+        # If no courses found, show default
+        if len(sorted_courses) == 1:  # Only "All Courses"
+            sorted_courses = ["All Courses", "No courses found"]
+    else:
+        sorted_courses = ["All Courses", "Canvas not connected"]
+
+    # Filter row
+    col1, col2, col3 = st.columns([2, 2, 1])
+
+    with col1:
+        # Time filter dropdown
+        days_filter = st.selectbox(
+            "Show assignments due in:",
+            options=[7, 14, 30, 60, 90, 365],
+            index=3,  # Default to 60 days
+            format_func=lambda x: f"{x} days",
+            key=f"days_filter_{student['id']}"
+        )
+
+    with col2:
+        # Course filter dropdown with real course names
+        course_filter = st.selectbox(
+            "Filter by course:",
+            options=sorted_courses,
+            index=0,  # Default to "All Courses"
+            key=f"course_filter_{student['id']}"
+        )
+
+    with col3:
+        # Refresh button
+        if st.button("🔄 Refresh", key=f"refresh_assignments_{student['id']}", use_container_width=True):
+            st.rerun()
+
+    # Store filter values in session state for later use
+    st.session_state[f"days_filter_value_{student['id']}"] = days_filter
+    st.session_state[f"course_filter_value_{student['id']}"] = course_filter
+
+    # Show filter summary for debugging (you can remove this later)
+    if len(sorted_courses) > 2:  # More than just "All Courses" and fallback
+        st.caption(f"📊 Found {len(sorted_courses) - 1} courses • Showing assignments due in {days_filter} days")
+
+    # Add a separator
+    st.markdown("---")
+
+    return days_filter, course_filter
+
+
+
 
 
 # ALSO UPDATE THE AI STUDY PLANNING FUNCTION:
@@ -1860,3 +1937,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
