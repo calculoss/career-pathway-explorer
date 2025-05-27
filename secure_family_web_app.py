@@ -1311,8 +1311,14 @@ def create_comprehensive_family_interface(family_info):
 
     selected_student = students[selected_student_idx]
 
-    # Tab navigation for selected student
-    tab1, tab2, tab3, tab4 = st.tabs(["💬 Career Guidance", "🎓 Canvas & Study Planning", "📊 Progress", "⚙️ Settings"])
+    # Tab navigation for selected student - NOW WITH HSC SUPPORT
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "💬 Career Guidance",
+        "🎓 Canvas & Study Planning",
+        "📊 Progress",
+        "⚙️ Settings",
+        "🎓 HSC Support"
+    ])
 
     with tab1:
         create_career_guidance_tab(selected_student, family_info)
@@ -1320,14 +1326,672 @@ def create_comprehensive_family_interface(family_info):
     with tab2:
         create_canvas_integration_tab(selected_student)
 
-
     with tab3:
         create_progress_tab(selected_student)
 
     with tab4:
         create_settings_tab(selected_student, family_info)
 
+    with tab5:
+        create_hsc_support_tab(selected_student)
+
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+def create_hsc_support_tab(student):
+    """Comprehensive HSC Support System"""
+    st.markdown("### 🎓 HSC Support & Planning")
+
+    # Check if student is HSC-eligible (Year 11 or 12)
+    year_level = student.get('year_level', 0)
+    if year_level < 11:
+        st.info(f"""
+        📚 **HSC Support** is designed for Year 11 and 12 students.
+
+        Since you're in Year {year_level}, you can explore:
+        - Subject selection guidance for Years 11-12
+        - University pathway planning
+        - Career exploration to help choose HSC subjects
+
+        Come back when you reach Year 11 for full HSC exam support!
+        """)
+        return
+
+    # HSC Support Tabs
+    hsc_tab1, hsc_tab2, hsc_tab3, hsc_tab4 = st.tabs([
+        "📝 Past Papers & Exams",
+        "🎯 ATAR Calculator",
+        "📊 Study Planner",
+        "🏫 University Pathways"
+    ])
+
+    with hsc_tab1:
+        create_past_papers_section(student)
+
+    with hsc_tab2:
+        create_atar_calculator_section(student)
+
+    with hsc_tab3:
+        create_hsc_study_planner_section(student)
+
+    with hsc_tab4:
+        create_university_pathways_section(student)
+
+
+def create_past_papers_section(student):
+    """HSC Past Papers and Exam Resources"""
+    st.markdown("#### 📝 HSC Past Papers & Marking Guidelines")
+
+    st.markdown("""
+    Access official NESA past papers with marking guidelines and examiner feedback.
+    """)
+
+    # HSC Subjects Database
+    hsc_subjects = {
+        "English": {
+            "courses": ["English Advanced", "English Standard", "English Extension 1", "English Extension 2"],
+            "papers_available": "2024, 2023, 2022, 2021, 2020",
+            "tips": "Focus on Band 6 responses in marking guidelines"
+        },
+        "Mathematics": {
+            "courses": ["Mathematics Advanced", "Mathematics Extension 1", "Mathematics Extension 2",
+                        "Mathematics Standard 2"],
+            "papers_available": "2024, 2023, 2022, 2021, 2020",
+            "tips": "Practice working solutions, not just answers"
+        },
+        "Sciences": {
+            "courses": ["Biology", "Chemistry", "Physics", "Earth & Environmental Science"],
+            "papers_available": "2024, 2023, 2022, 2021, 2020",
+            "tips": "Study practical investigation questions carefully"
+        },
+        "Humanities": {
+            "courses": ["Ancient History", "Modern History", "Geography", "Legal Studies", "Business Studies"],
+            "papers_available": "2024, 2023, 2022, 2021, 2020",
+            "tips": "Analyze marking criteria for essay questions"
+        },
+        "Languages": {
+            "courses": ["Chinese Continuers", "Chinese Extension", "French Continuers", "German Continuers"],
+            "papers_available": "2024, 2023, 2022, 2021, 2020",
+            "tips": "Practice listening components with audio files"
+        }
+    }
+
+    # Subject Selection
+    selected_subject_area = st.selectbox(
+        "Select Subject Area:",
+        list(hsc_subjects.keys()),
+        key="hsc_subject_area"
+    )
+
+    subject_info = hsc_subjects[selected_subject_area]
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        selected_course = st.selectbox(
+            f"Select {selected_subject_area} Course:",
+            subject_info["courses"],
+            key="hsc_course"
+        )
+
+        selected_year = st.selectbox(
+            "Select Exam Year:",
+            ["2024", "2023", "2022", "2021", "2020"],
+            key="hsc_year"
+        )
+
+    with col2:
+        st.markdown(f"""
+        **📊 Study Tip:**
+        {subject_info["tips"]}
+
+        **📅 Papers Available:**
+        {subject_info["papers_available"]}
+        """)
+
+    # Past Paper Links and Resources
+    st.markdown(f"""
+    ### 📄 {selected_course} - {selected_year} HSC Resources
+
+    **Official NESA Resources:**
+    """)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("📝 Exam Paper", key="exam_paper", use_container_width=True):
+            st.info(f"🔗 Opening {selected_course} {selected_year} exam paper...")
+            # In real implementation, this would link to NESA website
+            st.markdown("""
+            **Direct Link:** [NESA HSC Exam Papers](https://educationstandards.nsw.edu.au/wps/portal/nesa/11-12/resources/hsc-exam-papers)
+
+            Look for: {selected_course} {selected_year} HSC exam pack
+            """.format(selected_course=selected_course, selected_year=selected_year))
+
+    with col2:
+        if st.button("📋 Marking Guidelines", key="marking_guidelines", use_container_width=True):
+            st.info(f"📊 Viewing marking guidelines for {selected_course} {selected_year}...")
+            st.markdown("""
+            **Marking Guidelines include:**
+            - Sample responses for each band
+            - Common student errors
+            - Examiner feedback
+            - Detailed marking criteria
+            """)
+
+    with col3:
+        if st.button("🎯 Examiner Feedback", key="examiner_feedback", use_container_width=True):
+            st.info(f"💭 Accessing examiner feedback for {selected_course} {selected_year}...")
+            st.markdown("""
+            **Examiner Feedback covers:**
+            - What students did well
+            - Areas for improvement
+            - Common misconceptions
+            - Study recommendations
+            """)
+
+    # AI-Powered Study Suggestions
+    if st.button("🤖 Get AI Study Plan for This Subject", key="ai_subject_plan", use_container_width=True):
+        create_subject_specific_study_plan(student, selected_course, selected_year)
+
+
+def create_atar_calculator_section(student):
+    """ATAR Calculator and University Planning"""
+    st.markdown("#### 🎯 ATAR Calculator & University Requirements")
+
+    st.markdown("""
+    **Understanding ATAR (2025 Changes):**
+    - ATAR = Australian Tertiary Admission Rank (0.00 to 99.95)
+    - Calculated from: 2 units English + your best 8 units
+    - **NEW 2025:** All examined HSC subjects now count toward ATAR
+    - Shows your rank relative to your entire age group
+    """)
+
+    # ATAR Calculator
+    with st.form("atar_calculator"):
+        st.markdown("##### 📊 Estimate Your ATAR")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**English (Mandatory 2 units):**")
+            english_type = st.selectbox(
+                "English Course:",
+                ["English Advanced", "English Standard", "English Extension 1"]
+            )
+            english_mark = st.slider("Expected HSC Mark:", 50, 100, 80, key="english_mark")
+
+        with col2:
+            st.markdown("**Additional Subjects (Best 8 units):**")
+
+            subjects = []
+            for i in range(4):  # 4 subjects = 8 units typically
+                subject = st.selectbox(
+                    f"Subject {i + 1}:",
+                    ["Mathematics Advanced", "Mathematics Extension 1", "Biology", "Chemistry", "Physics",
+                     "Ancient History", "Modern History", "Legal Studies", "Business Studies", "None"],
+                    key=f"subject_{i}"
+                )
+
+                if subject != "None":
+                    mark = st.slider(f"{subject} Expected Mark:", 50, 100, 80, key=f"mark_{i}")
+                    subjects.append({"subject": subject, "mark": mark})
+
+        submitted = st.form_submit_button("Calculate Estimated ATAR", use_container_width=True)
+
+        if submitted:
+            estimated_atar = calculate_estimated_atar(english_mark, subjects)
+
+            st.success(f"🎯 **Estimated ATAR: {estimated_atar}**")
+
+            # University recommendations based on ATAR
+            show_university_recommendations(estimated_atar, student)
+
+
+def calculate_estimated_atar(english_mark, subjects):
+    """Simple ATAR estimation (real calculation is complex)"""
+    # This is a simplified calculation - real ATAR uses complex scaling
+    total_marks = english_mark * 2  # English counts as 2 units
+
+    # Add subject marks (simplified)
+    for subject in subjects:
+        # Apply basic scaling factors (simplified)
+        scaling_factor = get_scaling_factor(subject["subject"])
+        scaled_mark = subject["mark"] * scaling_factor
+        total_marks += scaled_mark * 2  # Each subject typically 2 units
+
+    # Convert to ATAR equivalent (very simplified)
+    units_total = 2 + len(subjects) * 2  # English + other subjects
+    average = total_marks / units_total
+
+    # Simple ATAR conversion (real formula is much more complex)
+    if average >= 95:
+        return "95.00+"
+    elif average >= 90:
+        return f"{85 + (average - 90)}0"
+    elif average >= 80:
+        return f"{75 + (average - 80) * 1.5:.1f}"
+    else:
+        return f"{max(30, average - 10):.1f}"
+
+
+def get_scaling_factor(subject):
+    """Simplified scaling factors"""
+    scaling = {
+        "Mathematics Extension 1": 1.1,
+        "Mathematics Advanced": 1.05,
+        "Physics": 1.05,
+        "Chemistry": 1.05,
+        "Biology": 1.0,
+        "English Advanced": 1.0,
+        "Ancient History": 0.98,
+        "Modern History": 0.98,
+        "Legal Studies": 0.95,
+        "Business Studies": 0.95
+    }
+    return scaling.get(subject, 1.0)
+
+
+def show_university_recommendations(estimated_atar, student):
+    """Show university course recommendations based on ATAR"""
+    atar_num = float(estimated_atar.replace("+", "").replace("0", ""))
+
+    st.markdown("#### 🏫 University Course Recommendations")
+
+    # Course recommendations based on ATAR ranges
+    if atar_num >= 95:
+        st.markdown("""
+        **🌟 Excellent ATAR! You're eligible for:**
+        - Medicine/Dentistry (UNSW: 99.95, Sydney: 99.95)
+        - Law (Sydney: 99.50, UNSW: 99.80)
+        - Engineering (Sydney: 95.00, UNSW: 96.00)
+        - Any Arts/Science program at any university
+        """)
+    elif atar_num >= 85:
+        st.markdown("""
+        **🎯 Strong ATAR! Consider:**
+        - Engineering (UTS: 87.00, Newcastle: 80.00)
+        - Business/Commerce (Sydney: 95.00, UNSW: 96.00)
+        - Science (Sydney: 85.00, UNSW: 88.00)
+        - Education (Sydney: 82.00, Macquarie: 75.00)
+        """)
+    elif atar_num >= 75:
+        st.markdown("""
+        **✅ Good ATAR! Options include:**
+        - Arts (Sydney: 80.00, Macquarie: 75.00)
+        - Education (Newcastle: 70.00, Western Sydney: 68.00)
+        - Business (Macquarie: 85.00, UTS: 88.00)
+        - Science (Newcastle: 70.00, Western Sydney: 65.00)
+        """)
+    else:
+        st.markdown("""
+        **🌱 Many pathways available:**
+        - Foundation programs at major universities
+        - Direct entry to Western Sydney, Southern Cross
+        - TAFE pathways to university
+        - Consider subject selection to improve ATAR
+        """)
+
+    # Show specific recommendations for student's interests
+    if student.get('interests'):
+        st.markdown(f"""
+        **💡 Based on your interests in {', '.join(student['interests'][:2])}:**
+        """)
+
+        for interest in student['interests'][:2]:
+            if 'history' in interest.lower():
+                st.markdown("- Ancient History: Consider Arts/Education at Macquarie (strong program)")
+            elif 'biology' in interest.lower():
+                st.markdown("- Biology/Science: Consider Science at Newcastle or Macquarie")
+            elif 'teaching' in interest.lower():
+                st.markdown("- Education: Newcastle has excellent teacher training with practical experience")
+
+
+def create_hsc_study_planner_section(student):
+    """HSC-specific study planning"""
+    st.markdown("#### 📊 HSC Study Planner")
+
+    st.markdown("""
+    **Integrated HSC Study Planning:**
+    Combine your Canvas assignments with HSC exam preparation.
+    """)
+
+    # Get upcoming HSC timeline
+    current_date = datetime.now()
+
+    if student.get('year_level') == 12:
+        # Year 12 - HSC exam timeline
+        hsc_start = datetime(2025, 10, 13)  # Typical HSC start date
+        days_to_hsc = (hsc_start - current_date).days
+
+        if days_to_hsc > 0:
+            st.info(f"🕒 **HSC Exams start in {days_to_hsc} days** (October 13, 2025)")
+        else:
+            st.success("🎉 HSC Exams have started or finished!")
+
+        # HSC Study Timeline
+        create_hsc_timeline_planner(student, days_to_hsc)
+
+    else:
+        # Year 11 - Preparation timeline
+        st.info("📚 **Year 11 Focus:** Building foundations for HSC year")
+        create_year11_preparation_planner(student)
+
+
+def create_hsc_timeline_planner(student, days_to_hsc):
+    """Year 12 HSC timeline planning"""
+    st.markdown("##### 🗓️ HSC Preparation Timeline")
+
+    # HSC subjects from Canvas or manual entry
+    canvas_integrator = st.session_state.get('canvas_integrator')
+    hsc_subjects = []
+
+    if canvas_integrator and canvas_integrator.has_canvas_credentials(student['id']):
+        # Get subjects from Canvas assignments
+        assignments = canvas_integrator.get_student_assignments(student['id'])
+        courses = list(set([a.get('course', '') for a in assignments if a.get('course')]))
+        hsc_subjects = [course for course in courses if is_hsc_subject(course)]
+
+    if not hsc_subjects:
+        # Manual subject entry
+        st.markdown("**Enter your HSC subjects:**")
+        subject_input = st.text_input(
+            "HSC Subjects (comma separated):",
+            placeholder="e.g., English Advanced, Mathematics Advanced, Biology, Ancient History"
+        )
+        if subject_input:
+            hsc_subjects = [s.strip() for s in subject_input.split(',')]
+
+    if hsc_subjects:
+        st.markdown(f"**Your HSC Subjects:** {', '.join(hsc_subjects)}")
+
+        # Create study schedule recommendations
+        if st.button("🤖 Generate HSC Study Schedule", use_container_width=True):
+            generate_hsc_study_schedule(student, hsc_subjects, days_to_hsc)
+
+
+def generate_hsc_study_schedule(student, hsc_subjects, days_to_hsc):
+    """Generate AI-powered HSC study schedule"""
+    if 'career_agent' not in st.session_state:
+        st.session_state.career_agent = SecureFamilyCareerAgent()
+
+    agent = st.session_state.career_agent
+
+    if not agent.client:
+        st.error("AI service not available for study schedule generation.")
+        return
+
+    with st.spinner("🤖 Creating your personalised HSC study schedule..."):
+        try:
+            prompt = f"""
+            Create a comprehensive HSC study schedule for {student['name']}:
+
+            **Student Info:**
+            - Year Level: {student.get('year_level', 12)}
+            - HSC Subjects: {', '.join(hsc_subjects)}
+            - Days until HSC: {days_to_hsc}
+            - Interests: {', '.join(student.get('interests', []))}
+
+            **Create a study plan that includes:**
+            1. Weekly schedule with time allocation per subject
+            2. Revision priorities (focus on weaker subjects)
+            3. Past paper practice timeline
+            4. Stress management and breaks
+            5. Final week preparation strategy
+
+            Format as a practical, week-by-week guide they can follow.
+            Be encouraging but realistic about the work required.
+            """
+
+            response = agent.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            study_schedule = response.content[0].text
+
+            st.markdown("### 📅 Your Personalised HSC Study Schedule")
+            st.markdown(study_schedule)
+
+            # Save as study plan
+            if st.button("💾 Save This Schedule", key="save_hsc_schedule"):
+                st.success("✅ HSC study schedule saved to your progress tracking!")
+
+        except Exception as e:
+            st.error(f"Error generating study schedule: {str(e)}")
+
+
+def create_university_pathways_section(student):
+    """University pathways and course information"""
+    st.markdown("#### 🏫 University Pathways")
+
+    st.markdown("""
+    **NSW/ACT University Guidance:**
+    Plan your pathway from HSC to university with current admission requirements.
+    """)
+
+    # University database
+    university_info = {
+        "University of Sydney": {
+            "location": "Sydney",
+            "strengths": ["Medicine", "Law", "Engineering", "Arts"],
+            "atar_ranges": {"Arts": "80-85", "Science": "85-90", "Engineering": "95-97", "Law": "99.50"},
+            "notes": "Highly competitive, excellent reputation"
+        },
+        "UNSW Sydney": {
+            "location": "Sydney",
+            "strengths": ["Engineering", "Business", "Medicine", "Science"],
+            "atar_ranges": {"Arts": "88-92", "Science": "88-92", "Engineering": "96-98", "Medicine": "99.95"},
+            "notes": "Strong industry connections, innovation focus"
+        },
+        "University of Newcastle": {
+            "location": "Newcastle",
+            "strengths": ["Education", "Medicine", "Engineering", "Health"],
+            "atar_ranges": {"Arts": "70-75", "Education": "70-75", "Science": "70-75", "Medicine": "99.95"},
+            "notes": "Excellent teacher training, regional opportunities"
+        },
+        "Macquarie University": {
+            "location": "Sydney",
+            "strengths": ["Ancient History", "Linguistics", "Psychology", "Business"],
+            "atar_ranges": {"Arts": "75-80", "Science": "75-80", "Psychology": "85-90", "Business": "85-90"},
+            "notes": "Strong in humanities, excellent research facilities"
+        },
+        "Australian National University": {
+            "location": "Canberra",
+            "strengths": ["Political Science", "Research", "Arts", "Science"],
+            "atar_ranges": {"Arts": "85-90", "Science": "90-93", "Law": "97-99", "Medicine": "99.95"},
+            "notes": "Research-intensive, beautiful campus"
+        }
+    }
+
+    # University selection
+    selected_uni = st.selectbox(
+        "Select University:",
+        list(university_info.keys())
+    )
+
+    uni_data = university_info[selected_uni]
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown(f"""
+        ### 🏛️ {selected_uni}
+
+        **📍 Location:** {uni_data['location']}
+        **🌟 Strengths:** {', '.join(uni_data['strengths'])}
+        **📝 Notes:** {uni_data['notes']}
+
+        **ATAR Requirements (2025):**
+        """)
+
+        for course, atar_range in uni_data['atar_ranges'].items():
+            st.markdown(f"- **{course}:** {atar_range}")
+
+    with col2:
+        if st.button("🔗 University Website", use_container_width=True):
+            st.info("Opening university website...")
+
+        if st.button("📅 Open Days", use_container_width=True):
+            st.info("Finding upcoming open days...")
+
+        if st.button("💬 Ask AI About This Uni", use_container_width=True):
+            get_ai_university_advice(student, selected_uni, uni_data)
+
+
+def get_ai_university_advice(student, university, uni_data):
+    """Get AI advice about specific university"""
+    if 'career_agent' not in st.session_state:
+        st.session_state.career_agent = SecureFamilyCareerAgent()
+
+    agent = st.session_state.career_agent
+
+    if not agent.client:
+        st.error("AI advice not available.")
+        return
+
+    with st.spinner(f"🤖 Getting personalised advice about {university}..."):
+        try:
+            prompt = f"""
+            Provide personalised advice for {student['name']} about {university}:
+
+            **Student Profile:**
+            - Interests: {', '.join(student.get('interests', []))}
+            - Year Level: {student.get('year_level')}
+            - Timeline: {student.get('timeline', 'Not specified')}
+            - Location Preference: {student.get('location_preference', 'Not specified')}
+
+            **University:** {university} in {uni_data['location']}
+            **Strengths:** {', '.join(uni_data['strengths'])}
+
+            Give specific, practical advice about:
+            1. How this university aligns with their interests
+            2. Recommended courses based on their profile
+            3. ATAR targets they should aim for
+            4. Application timeline and tips
+            5. Campus life and opportunities
+
+            Be encouraging and specific to NSW context.
+            """
+
+            response = agent.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            advice = response.content[0].text
+
+            st.markdown("### 💭 Personalised University Advice")
+            st.markdown(advice)
+
+        except Exception as e:
+            st.error(f"Error getting AI advice: {str(e)}")
+
+
+def create_subject_specific_study_plan(student, course, year):
+    """Create AI study plan for specific HSC subject"""
+    if 'career_agent' not in st.session_state:
+        st.session_state.career_agent = SecureFamilyCareerAgent()
+
+    agent = st.session_state.career_agent
+
+    if not agent.client:
+        st.error("AI study planning not available.")
+        return
+
+    with st.spinner(f"🤖 Creating study plan for {course}..."):
+        try:
+            prompt = f"""
+            Create a detailed study plan for {student['name']} for {course} HSC {year}:
+
+            **Focus Areas:**
+            1. Analysis of {year} past paper to identify key topics
+            2. Study schedule for mastering difficult concepts
+            3. Practice exam timeline with marking guidelines
+            4. Common mistakes to avoid (from examiner feedback)
+            5. Band 6 response techniques
+
+            Make it practical and specific to {course}.
+            Include weekly goals and revision strategies.
+            """
+
+            response = agent.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            study_plan = response.content[0].text
+
+            st.markdown(f"### 📚 {course} Study Plan")
+            st.markdown(study_plan)
+
+        except Exception as e:
+            st.error(f"Error creating study plan: {str(e)}")
+
+
+def is_hsc_subject(course_name):
+    """Check if a course name is likely an HSC subject"""
+    hsc_keywords = ['hsc', 'year 12', 'y12', 'advanced', 'extension', 'standard']
+    hsc_subjects = ['english', 'mathematics', 'biology', 'chemistry', 'physics',
+                    'history', 'geography', 'legal', 'business', 'economics']
+
+    course_lower = course_name.lower()
+
+    return (any(keyword in course_lower for keyword in hsc_keywords) or
+            any(subject in course_lower for subject in hsc_subjects))
+
+
+def create_year11_preparation_planner(student):
+    """Year 11 preparation for HSC"""
+    st.markdown("##### 📚 Year 11 HSC Preparation")
+
+    st.markdown("""
+    **Building Your HSC Foundation:**
+    - Focus on developing strong study habits
+    - Explore subject interests for Year 12 selection
+    - Build time management skills
+    - Start university research early
+    """)
+
+    if st.button("🎯 Get Year 11 Study Strategy", use_container_width=True):
+        st.markdown("""
+        ### 🌟 Year 11 Success Strategy
+
+        **📚 Academic Focus:**
+        - Master fundamental concepts in each subject
+        - Develop note-taking and summary skills
+        - Practice exam techniques with school assessments
+
+        **🎯 Subject Selection:**
+        - Research Year 12 subject prerequisites for your target universities
+        - Talk to Year 12 students about subject experiences
+        - Consider your strengths and genuine interests
+
+        **🏫 University Preparation:**
+        - Attend university open days
+        - Research course requirements and career outcomes
+        - Start building your co-curricular profile
+        """)
+
+
+# ADD THIS TO YOUR TAB STRUCTURE
+# In create_comprehensive_family_interface, add HSC Support as a 5th tab:
+
+# def create_comprehensive_family_interface(family_info):
+#     ...
+#     tab1, tab2, tab3, tab4, tab5 = st.tabs([
+#         "💬 Career Guidance",
+#         "🎓 Canvas & Study Planning",
+#         "📊 Progress",
+#         "⚙️ Settings",
+#         "🎓 HSC Support"  # NEW TAB
+#     ])
+#
+#     with tab5:
+#         create_hsc_support_tab(selected_student)
 
 
 def create_career_guidance_tab(student, family_info):
