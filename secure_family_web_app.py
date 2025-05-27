@@ -744,10 +744,14 @@ class CanvasIntegrator:
             return []
 
     def save_study_milestones(self, student_id: str, assignment_id: str, assignment_name: str, milestones: list):
-        """Save study milestones for an assignment"""
+        """Save study milestones for an assignment - FIXED VERSION"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+
+            # DEBUG: Print what we're trying to save
+            print(f"🔍 Saving milestones for student {student_id}, assignment {assignment_id}")
+            print(f"🔍 Number of milestones: {len(milestones)}")
 
             # Clear existing milestones for this assignment
             cursor.execute('''
@@ -755,30 +759,53 @@ class CanvasIntegrator:
                 WHERE student_id = ? AND assignment_id = ?
             ''', (student_id, assignment_id))
 
+            rows_deleted = cursor.rowcount
+            print(f"🔍 Deleted {rows_deleted} existing milestones")
+
             # Insert new milestones
-            for milestone in milestones:
+            for i, milestone in enumerate(milestones):
+                print(f"🔍 Inserting milestone {i}: {milestone}")
+
+                # Extract milestone data safely
+                title = milestone.get('title', f'Milestone {i + 1}')
+                description = milestone.get('description', '')
+                target_date = milestone.get('target_date', '')
+
                 cursor.execute('''
                     INSERT INTO study_milestones
-                    (student_id, assignment_id, assignment_name, title, description, target_date)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (student_id, assignment_id, assignment_name, title, description, target_date, completed)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     student_id,
                     assignment_id,
                     assignment_name,
-                    milestone['title'],
-                    milestone['description'],
-                    milestone['target_date']
+                    title,
+                    description,
+                    target_date,
+                    False  # New milestones start as incomplete
                 ))
 
             conn.commit()
-            conn.close()
-            return True
 
-        except Exception:
+            # Verify what we saved
+            cursor.execute('''
+                SELECT COUNT(*) FROM study_milestones 
+                WHERE student_id = ? AND assignment_id = ?
+            ''', (student_id, assignment_id))
+
+            saved_count = cursor.fetchone()[0]
+            print(f"🔍 Verified {saved_count} milestones saved")
+
+            conn.close()
+
+            return saved_count == len(milestones)  # Return True only if all milestones saved
+
+        except Exception as e:
+            print(f"❌ Error saving milestones: {str(e)}")
             return False
 
     def get_study_milestones(self, student_id: str, assignment_id: str):
-        """Get study milestones for an assignment"""
+        """Get study milestones for an assignment - FIXED VERSION"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -800,9 +827,11 @@ class CanvasIntegrator:
                 })
 
             conn.close()
+            print(f"🔍 Retrieved {len(milestones)} milestones for {assignment_id}")
             return milestones
 
-        except Exception:
+        except Exception as e:
+            print(f"❌ Error retrieving milestones: {str(e)}")
             return []
 
 
@@ -1505,7 +1534,6 @@ def show_assignments_list_with_study_plans(student, canvas):
             st.error(f"Error displaying assignment {i}: {str(e)}")
             continue
 
-
 def get_assignment_study_plan_summary(canvas, student_id, assignment):
     """Get summary info about study plan for an assignment - SAFE DATE HANDLING"""
     try:
@@ -1569,7 +1597,6 @@ def get_assignment_study_plan_summary(canvas, student_id, assignment):
             'progress_percent': 0,
             'next_milestone': None
         }
-
 
 def complete_milestone(canvas, student_id, assignment, milestone_info):
     """Mark a milestone as complete - SAFE IMPLEMENTATION"""
@@ -1797,6 +1824,7 @@ def show_assignments_list(student, canvas):
 
 def show_ai_study_planning_dated(student, assignment, assignment_index):
     """AI Study Planning Interface - For assignments with due dates"""
+
 
     unique_id = f"{student['id']}_dated_{assignment_index}"
 
@@ -2281,7 +2309,6 @@ def get_assignment_counts(student, canvas):
     except Exception:
         return "Assignment count unavailable"
 
-
 def categorize_assignment(assignment):
     """Categorize assignment by type - ULTRA RESTRICTIVE for Assessment Tasks"""
 
@@ -2337,7 +2364,6 @@ def categorize_assignment(assignment):
     # Everything else defaults to Course Materials (SAFEST)
     else:
         return "Course Materials"
-
 
 def show_assignment_filters(student):
     """Add filtering UI elements - WITH ASSIGNMENT TYPE FILTER"""
@@ -2420,135 +2446,6 @@ def show_assignment_filters(student):
 
     return days_filter, course_filter, type_filter
 
-
-# DEBUG VERSION: Add this temporary debug function to see what's happening
-
-def show_assignments_list_debug(student, canvas):
-    """DEBUG VERSION: Show assignments list with debug output"""
-
-    # Get filter values
-    days_filter, course_filter = show_assignment_filters(student)
-
-    # DEBUG: Show what filters we got
-    st.write(f"🔍 DEBUG: Days filter = {days_filter}, Course filter = '{course_filter}'")
-
-    # Get assignments from database
-    assignments = canvas.get_student_assignments(student['id'])
-
-    if not assignments:
-        st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
-        return
-
-    # DEBUG: Show total assignments before filtering
-    st.write(f"🔍 DEBUG: Total assignments from database = {len(assignments)}")
-
-    # Show first few assignments for debugging
-    st.write("🔍 DEBUG: First 3 assignments:")
-    for i, assignment in enumerate(assignments[:3]):
-        st.write(
-            f"  - {assignment.get('name', 'No name')} | Course: '{assignment.get('course', 'No course')}' | Due: {assignment.get('due_date', 'No date')}")
-
-    # APPLY FILTERS HERE
-    current_time = datetime.now()
-    filtered_assignments = []
-
-    st.write(f"🔍 DEBUG: Starting filtering loop...")
-
-    for i, assignment in enumerate(assignments):
-        try:
-            assignment_name = assignment.get('name', 'No name')
-
-            # Parse due date for time filtering
-            due_date = None
-            due_date_str = assignment.get('due_date')
-
-            if due_date_str:
-                try:
-                    if isinstance(due_date_str, str):
-                        clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
-                        due_date = datetime.fromisoformat(clean_date_str)
-                except Exception:
-                    due_date = None
-
-            # DEBUG: Show date parsing result
-            if i < 3:  # Only debug first 3
-                st.write(f"🔍 DEBUG: Assignment '{assignment_name}' - Parsed date: {due_date}")
-
-            # Apply TIME filter
-            time_filter_passed = True
-            if due_date:
-                days_until_due = (due_date - current_time).days
-                if days_until_due > days_filter:
-                    time_filter_passed = False
-                    if i < 3:
-                        st.write(
-                            f"🔍 DEBUG: '{assignment_name}' FILTERED OUT by time ({days_until_due} days > {days_filter})")
-                else:
-                    if i < 3:
-                        st.write(
-                            f"🔍 DEBUG: '{assignment_name}' PASSED time filter ({days_until_due} days <= {days_filter})")
-            else:
-                if i < 3:
-                    st.write(f"🔍 DEBUG: '{assignment_name}' PASSED time filter (no due date)")
-
-            if not time_filter_passed:
-                continue
-
-            # Apply COURSE filter
-            course_filter_passed = True
-            if course_filter != "All Courses":
-                assignment_course = assignment.get('course', 'Unknown Course')
-                if assignment_course != course_filter:
-                    course_filter_passed = False
-                    if i < 3:
-                        st.write(
-                            f"🔍 DEBUG: '{assignment_name}' FILTERED OUT by course ('{assignment_course}' != '{course_filter}')")
-                else:
-                    if i < 3:
-                        st.write(f"🔍 DEBUG: '{assignment_name}' PASSED course filter")
-            else:
-                if i < 3:
-                    st.write(f"🔍 DEBUG: '{assignment_name}' PASSED course filter (All Courses selected)")
-
-            if not course_filter_passed:
-                continue
-
-            # If we get here, the assignment passed all filters
-            filtered_assignments.append(assignment)
-            if i < 3:
-                st.write(f"🔍 DEBUG: '{assignment_name}' ADDED to filtered list")
-
-        except Exception as e:
-            st.write(f"🔍 DEBUG: Error processing assignment {i}: {e}")
-            filtered_assignments.append(assignment)
-
-    # DEBUG: Show filtering results
-    st.write(f"🔍 DEBUG: Filtered assignments count = {len(filtered_assignments)}")
-
-    # Show filter results summary
-    total_assignments = len(assignments)
-    filtered_count = len(filtered_assignments)
-
-    if course_filter == "All Courses":
-        course_text = "all courses"
-    else:
-        course_text = f'"{course_filter}"'
-
-    st.caption(
-        f"📊 Showing {filtered_count} of {total_assignments} assignments from {course_text} due within {days_filter} days")
-
-    if not filtered_assignments:
-        st.info(
-            f"📅 No assignments found matching your filters. Try selecting a longer time period or different course.")
-        return
-
-    # Just show a simple list for now (no complex UI)
-    st.write("🔍 DEBUG: Assignments that passed filters:")
-    for i, assignment in enumerate(filtered_assignments):
-        st.write(f"  {i + 1}. {assignment.get('name', 'No name')} - {assignment.get('course', 'No course')}")
-
-
-# TEMPORARY: Update your Canvas integration tab to use the debug version
 def create_canvas_integration_tab_debug(student):
     """Canvas integration with DEBUG version"""
 
@@ -2563,7 +2460,6 @@ def create_canvas_integration_tab_debug(student):
         show_canvas_dashboard_debug(student, canvas)
     else:
         show_canvas_connection_form(student, canvas)
-
 
 def show_canvas_dashboard_debug(student, canvas):
     """Canvas dashboard with DEBUG version"""
@@ -2591,8 +2487,6 @@ def show_canvas_dashboard_debug(student, canvas):
 
     # Use debug version
     show_assignments_list_debug(student, canvas)
-
-
 
 # ALSO UPDATE THE AI STUDY PLANNING FUNCTION:
 def show_ai_study_planning(student, assignment, assignment_index):
