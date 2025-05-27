@@ -1490,19 +1490,7 @@ def show_assignments_list_with_study_plans(student, canvas):
                         </div>
                         """, unsafe_allow_html=True)
 
-                    st.markdown(f"""
-                    <div class="assignment-row {urgency_class}">
-                        <div class="assignment-name">
-                            {assignment_name}
-                            <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
-                        </div>
-                        <div class="assignment-details">
-                            📚 {course_name} | 📅 Due: {due_date_display} | 
-                            🎯 {points} points | 📝 {assignment_type}
-                        </div>
-                        {study_plan_html}
-                    </div>
-                    """, unsafe_allow_html=True)
+
 
                 with col2:
                     # Study plan action buttons
