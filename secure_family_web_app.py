@@ -1290,6 +1290,276 @@ def create_canvas_integration_tab(student):
     else:
         show_canvas_connection_form(student, canvas)
 
+
+def show_assignments_list_with_study_plans(student, canvas):
+    """Enhanced assignments list with study plan indicators"""
+
+    # Get filter values
+    days_filter, course_filter, type_filter = show_assignment_filters(student)
+
+    # Get assignments from database
+    assignments = canvas.get_student_assignments(student['id'])
+
+    if not assignments:
+        st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
+        return
+
+    # Filter assignments (same logic as before)
+    current_time = datetime.now()
+    filtered_assignments = []
+
+    for assignment in assignments:
+        try:
+            due_date_str = assignment.get('due_date')
+            has_due_date = False
+
+            if due_date_str:
+                try:
+                    if isinstance(due_date_str, str):
+                        clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
+                        due_date = datetime.fromisoformat(clean_date_str)
+                        assignment['parsed_due_date'] = due_date
+                        has_due_date = True
+                except Exception:
+                    pass
+
+            if has_due_date:
+                days_until_due = (due_date - current_time).days
+                if days_until_due > days_filter or days_until_due < -30:
+                    continue
+
+            # Apply other filters (course, type)
+            if course_filter != "All Courses":
+                assignment_course = assignment.get('course', 'Unknown Course')
+                if assignment_course != course_filter:
+                    continue
+
+            assignment_category = categorize_assignment(assignment)
+            if type_filter == "Assessment Tasks Only" and assignment_category != "Assessment Tasks":
+                continue
+            elif type_filter == "Quizzes & Tests" and assignment_category != "Quizzes & Tests":
+                continue
+            elif type_filter == "Course Materials" and assignment_category != "Course Materials":
+                continue
+
+            filtered_assignments.append(assignment)
+
+        except Exception:
+            continue
+
+    # Sort by due date
+    filtered_assignments.sort(key=lambda x: x.get('parsed_due_date', datetime.now()))
+
+    # Show summary
+    st.markdown(f"""
+    **📊 Assignment Summary:** {len(filtered_assignments)} assignments match your filters
+    """)
+
+    if not filtered_assignments:
+        st.info(f"📅 No {type_filter.lower()} found matching your filters.")
+        return
+
+    # Enhanced assignment display with study plan indicators
+    st.markdown("### 📅 Assignments with Due Dates")
+
+    for i, assignment in enumerate(filtered_assignments[:20]):
+        try:
+            # Get study plan info for this assignment
+            study_plan_info = get_assignment_study_plan_summary(canvas, student['id'], assignment)
+
+            due_date = assignment.get('parsed_due_date')
+            days_until_due = (due_date - current_time).days
+
+            # Calculate urgency
+            if days_until_due < 0:
+                urgency_class = "overdue"
+                urgency_text = "OVERDUE"
+                urgency_badge_class = "urgency-overdue"
+            elif days_until_due <= 3:
+                urgency_class = "due-soon"
+                urgency_text = "DUE SOON"
+                urgency_badge_class = "urgency-soon"
+            else:
+                urgency_class = "future"
+                urgency_text = "FUTURE"
+                urgency_badge_class = "urgency-future"
+
+            # Create enhanced assignment container
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    assignment_name = assignment.get('name', 'Untitled Assignment')
+                    course_name = assignment.get('course', 'Unknown Course')
+                    points = assignment.get('points', 0)
+                    assignment_type = assignment.get('type', 'Assignment')
+                    due_date_display = due_date.strftime('%Y-%m-%d %H:%M')
+
+                    # Build study plan status display
+                    study_plan_html = ""
+                    if study_plan_info['has_plan']:
+                        progress_percent = study_plan_info['progress_percent']
+                        next_milestone = study_plan_info['next_milestone']
+
+                        if next_milestone:
+                            next_milestone_text = f"Next: {next_milestone['title']} ({next_milestone['target_date']})"
+                            if next_milestone['days_until_due'] <= 1:
+                                next_milestone_class = "urgency-overdue"
+                            elif next_milestone['days_until_due'] <= 3:
+                                next_milestone_class = "urgency-soon"
+                            else:
+                                next_milestone_class = "urgency-future"
+                        else:
+                            next_milestone_text = "All milestones complete! 🎉"
+                            next_milestone_class = "urgency-future"
+
+                        study_plan_html = f"""
+                        <div style="background: #f0f9ff; border-left: 3px solid #0ea5e9; padding: 8px 12px; margin: 8px 0; border-radius: 4px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; color: #0c4a6e;">
+                                    🧠 Study Plan: {study_plan_info['completed']}/{study_plan_info['total']} milestones ({progress_percent}%)
+                                </span>
+                                <div style="background: #e5e7eb; border-radius: 8px; overflow: hidden; width: 100px; height: 8px;">
+                                    <div style="background: #0ea5e9; height: 100%; width: {progress_percent}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="font-size: 13px; color: #075985; margin-top: 4px;">
+                                <span class="urgency-badge {next_milestone_class}" style="font-size: 11px; padding: 2px 6px;">{next_milestone_text}</span>
+                            </div>
+                        </div>
+                        """
+
+                    st.markdown(f"""
+                    <div class="assignment-row {urgency_class}">
+                        <div class="assignment-name">
+                            {assignment_name}
+                            <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
+                        </div>
+                        <div class="assignment-details">
+                            📚 {course_name} | 📅 Due: {due_date_display} | 
+                            🎯 {points} points | 📝 {assignment_type}
+                        </div>
+                        {study_plan_html}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    # Study plan action buttons
+                    if study_plan_info['has_plan']:
+                        # Show "View/Edit Plan" button
+                        if st.button(f"📊 View Plan", key=f"view_plan_{i}", use_container_width=True):
+                            st.session_state[f"show_study_plan_{student['id']}_dated_{i}"] = True
+                            st.rerun()
+
+                        # Quick complete milestone button for next milestone
+                        if study_plan_info['next_milestone']:
+                            if st.button(f"✅ Complete:\n{study_plan_info['next_milestone']['title'][:20]}...",
+                                         key=f"complete_milestone_{i}", use_container_width=True, type="secondary"):
+                                complete_milestone(canvas, student['id'], assignment, study_plan_info['next_milestone'])
+                                st.success(f"✅ Completed: {study_plan_info['next_milestone']['title']}")
+                                st.rerun()
+                    else:
+                        # Show "Create Study Plan" button
+                        if st.button(f"🤖 Study Plan", key=f"study_plan_btn_{i}", use_container_width=True):
+                            st.session_state[f"show_study_plan_{student['id']}_dated_{i}"] = True
+                            st.rerun()
+
+                # AI Study Planning Interface (same as before, but now contextually triggered)
+                if st.session_state.get(f"show_study_plan_{student['id']}_dated_{i}", False):
+                    show_ai_study_planning_dated(student, assignment, i)
+
+        except Exception as e:
+            st.error(f"Error displaying assignment: {str(e)}")
+            continue
+
+
+def get_assignment_study_plan_summary(canvas, student_id, assignment):
+    """Get summary info about study plan for an assignment"""
+    try:
+        assignment_id = assignment.get('assignment_id', f"assignment_dated_{assignment.get('name', '')}")
+        milestones = canvas.get_study_milestones(student_id, assignment_id)
+
+        if not milestones:
+            return {
+                'has_plan': False,
+                'total': 0,
+                'completed': 0,
+                'progress_percent': 0,
+                'next_milestone': None
+            }
+
+        # Calculate progress
+        total_milestones = len(milestones)
+        completed_milestones = sum(1 for m in milestones if m.get('completed', False))
+        progress_percent = int((completed_milestones / total_milestones) * 100) if total_milestones > 0 else 0
+
+        # Find next incomplete milestone
+        next_milestone = None
+        current_date = datetime.now().date()
+
+        for milestone in milestones:
+            if not milestone.get('completed', False):
+                try:
+                    target_date = datetime.strptime(milestone['target_date'], '%Y-%m-%d').date()
+                    days_until_due = (target_date - current_date).days
+
+                    next_milestone = {
+                        'title': milestone['title'],
+                        'target_date': milestone['target_date'],
+                        'days_until_due': days_until_due
+                    }
+                    break  # Get the first incomplete milestone
+                except:
+                    continue
+
+        return {
+            'has_plan': True,
+            'total': total_milestones,
+            'completed': completed_milestones,
+            'progress_percent': progress_percent,
+            'next_milestone': next_milestone
+        }
+
+    except Exception:
+        return {
+            'has_plan': False,
+            'total': 0,
+            'completed': 0,
+            'progress_percent': 0,
+            'next_milestone': None
+        }
+
+
+def complete_milestone(canvas, student_id, assignment, milestone_info):
+    """Mark a milestone as complete"""
+    try:
+        # This would need to be implemented in your CanvasIntegrator class
+        # For now, just update the database directly
+        conn = sqlite3.connect(canvas.db_path)
+        cursor = conn.cursor()
+
+        assignment_id = assignment.get('assignment_id', f"assignment_dated_{assignment.get('name', '')}")
+
+        cursor.execute('''
+            UPDATE study_milestones 
+            SET completed = TRUE 
+            WHERE student_id = ? AND assignment_id = ? AND title = ?
+        ''', (student_id, assignment_id, milestone_info['title']))
+
+        conn.commit()
+        conn.close()
+        return True
+
+    except Exception:
+        return False
+
+
+# UPDATE: Replace your existing show_assignments_list call with this new function
+# In create_canvas_integration_tab, change:
+# show_assignments_list(student, canvas)
+# TO:
+# show_assignments_list_with_study_plans(student, canvas)
+
 def show_assignments_list(student, canvas):
     """Show assignments list with FIXED filtering - only shows assignments with due dates"""
 
@@ -1927,7 +2197,7 @@ def show_canvas_dashboard(student, canvas):
                     st.error(f"Sync failed: {sync_result['message']}")
 
     # Show assignments
-    show_assignments_list(student, canvas)
+    show_assignments_list_with_study_plans(student, canvas)
 
 def get_assignment_counts(student, canvas):
     """Get assignment counts for user feedback"""
