@@ -1538,7 +1538,7 @@ def show_ai_study_planning_dated(student, assignment, assignment_index):
             edited_description = st.text_area(
                 "Description",
                 value=milestone.get('description', ''),
-                height=60,
+                height=80,
                 key=f"milestone_desc_{unique_id}_{j}",
                 label_visibility="collapsed"
             )
@@ -1706,7 +1706,7 @@ def show_ai_study_planning_filtered(student, assignment, assignment_index):
             edited_description = st.text_area(
                 "Description",
                 value=milestone.get('description', ''),
-                height=60,
+                height=80,
                 key=f"milestone_desc_{unique_id}_{j}",
                 label_visibility="collapsed"
             )
@@ -2340,7 +2340,7 @@ def show_ai_study_planning(student, assignment, assignment_index):
             edited_description = st.text_area(
                 "Description",
                 value=milestone.get('description', ''),
-                height=60,
+                height=80,
                 key=f"milestone_desc_{unique_id}_{j}",
                 label_visibility="collapsed"
             )
