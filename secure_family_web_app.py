@@ -1311,8 +1311,14 @@ def create_comprehensive_family_interface(family_info):
 
     selected_student = students[selected_student_idx]
 
-    # Tab navigation for selected student
-    tab1, tab2, tab3, tab4 = st.tabs(["💬 Career Guidance", "🎓 Canvas & Study Planning", "📊 Progress", "⚙️ Settings"])
+    # Tab navigation for selected student - NOW WITH HSC SUPPORT
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "💬 Career Guidance",
+        "🎓 Canvas & Study Planning",
+        "📊 Progress",
+        "⚙️ Settings",
+        "🎓 HSC Support"
+    ])
 
     with tab1:
         create_career_guidance_tab(selected_student, family_info)
@@ -1320,17 +1326,18 @@ def create_comprehensive_family_interface(family_info):
     with tab2:
         create_canvas_integration_tab(selected_student)
 
-
     with tab3:
         create_progress_tab(selected_student)
 
     with tab4:
         create_settings_tab(selected_student, family_info)
 
+    with tab5:
+        create_hsc_support_tab(selected_student)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-<<<<<<< HEAD
 def create_hsc_support_tab(student):
     """Comprehensive HSC Support System"""
     st.markdown("### 🎓 HSC Support & Planning")
@@ -1987,8 +1994,6 @@ def create_year11_preparation_planner(student):
 #         create_hsc_support_tab(selected_student)
 
 
-=======
->>>>>>> parent of d20f715 (Adding HSC section)
 def create_career_guidance_tab(student, family_info):
     """Enhanced conversational AI career guidance tab"""
     st.markdown("### 🤖 AI Career Counsellor")
