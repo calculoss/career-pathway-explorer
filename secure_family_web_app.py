@@ -408,7 +408,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 class CanvasIntegrator:
     """Canvas LMS Integration with fixed methods"""
 
@@ -834,7 +833,6 @@ class CanvasIntegrator:
             print(f"❌ Error retrieving milestones: {str(e)}")
             return []
 
-
 class SecureFamilyCareerAgent:
     def __init__(self):
         try:
@@ -954,7 +952,6 @@ class SecureFamilyCareerAgent:
                 }
             ]
 
-
 def create_header():
     """Compact site header"""
     st.markdown("""
@@ -967,7 +964,6 @@ def create_header():
         </div>
     </div>
     """, unsafe_allow_html=True)
-
 
 def create_family_login():
     """Clean, professional login interface"""
@@ -1050,7 +1046,6 @@ def create_family_login():
             st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 def create_family_registration():
     """Clean family registration form"""
@@ -1164,7 +1159,6 @@ def create_family_registration():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 def create_comprehensive_family_interface(family_info):
     """Enhanced family interface with full tab navigation"""
     create_header()
@@ -1237,7 +1231,6 @@ def create_comprehensive_family_interface(family_info):
         create_settings_tab(selected_student, family_info)
 
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 def create_career_guidance_tab(student, family_info):
     """Career guidance tab"""
@@ -1318,7 +1311,6 @@ def create_canvas_integration_tab(student):
         show_canvas_dashboard(student, canvas)
     else:
         show_canvas_connection_form(student, canvas)
-
 
 def show_assignments_list_with_study_plans(student, canvas):
     """Enhanced assignments list with study plan indicators - FIXED DATE HANDLING"""
@@ -1449,29 +1441,42 @@ def show_assignments_list_with_study_plans(student, canvas):
                     points = assignment.get('points', 0)
                     assignment_type = assignment.get('type', 'Assignment')
 
-                    # Build study plan status display
-                    study_plan_html = ""
+                    # Display basic assignment info first
+                    st.markdown(f"""
+                    <div class="assignment-row {urgency_class}">
+                        <div class="assignment-name">
+                            {assignment_name}
+                            <span class="urgency-badge {urgency_badge_class}">{urgency_text}</span>
+                        </div>
+                        <div class="assignment-details">
+                            📚 {course_name} | 📅 Due: {due_date_display} | 
+                            🎯 {points} points | 📝 {assignment_type}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Display study plan info SEPARATELY if it exists
                     if study_plan_info['has_plan']:
                         progress_percent = study_plan_info['progress_percent']
                         next_milestone = study_plan_info['next_milestone']
 
                         if next_milestone:
                             next_milestone_text = f"Next: {next_milestone['title']} ({next_milestone['target_date']})"
-                            # SAFE milestone urgency calculation
                             milestone_days = next_milestone.get('days_until_due', 999)
                             if milestone_days <= 1:
-                                next_milestone_class = "urgency-overdue"
+                                next_milestone_color = "#dc3545"  # Red
                             elif milestone_days <= 3:
-                                next_milestone_class = "urgency-soon"
+                                next_milestone_color = "#ffc107"  # Yellow
                             else:
-                                next_milestone_class = "urgency-future"
+                                next_milestone_color = "#28a745"  # Green
                         else:
                             next_milestone_text = "All milestones complete! 🎉"
-                            next_milestone_class = "urgency-future"
+                            next_milestone_color = "#28a745"
 
-                        study_plan_html = f"""
+                        # Render study plan info as separate markdown
+                        st.markdown(f"""
                         <div style="background: #f0f9ff; border-left: 3px solid #0ea5e9; padding: 8px 12px; margin: 8px 0; border-radius: 4px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                 <span style="font-weight: 600; color: #0c4a6e;">
                                     🧠 Study Plan: {study_plan_info['completed']}/{study_plan_info['total']} milestones ({progress_percent}%)
                                 </span>
@@ -1479,11 +1484,11 @@ def show_assignments_list_with_study_plans(student, canvas):
                                     <div style="background: #0ea5e9; height: 100%; width: {progress_percent}%; transition: width 0.3s ease;"></div>
                                 </div>
                             </div>
-                            <div style="font-size: 13px; color: #075985; margin-top: 4px;">
-                                <span style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{next_milestone_text}</span>
+                            <div style="font-size: 13px; color: #075985;">
+                                <span style="background: {next_milestone_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{next_milestone_text}</span>
                             </div>
                         </div>
-                        """
+                        """, unsafe_allow_html=True)
 
                     st.markdown(f"""
                     <div class="assignment-row {urgency_class}">
@@ -2488,7 +2493,6 @@ def show_canvas_dashboard_debug(student, canvas):
     # Use debug version
     show_assignments_list_debug(student, canvas)
 
-# ALSO UPDATE THE AI STUDY PLANNING FUNCTION:
 def show_ai_study_planning(student, assignment, assignment_index):
     """AI Study Planning Interface - FIXED DATE HANDLING"""
 
@@ -2659,7 +2663,6 @@ def show_ai_study_planning(student, assignment, assignment_index):
         </div>
         """, unsafe_allow_html=True)
 
-
 def create_progress_tab(student):
     """Progress tracking tab"""
     st.markdown("### 📊 Study Progress Overview")
@@ -2701,7 +2704,6 @@ def create_progress_tab(student):
 
     for activity in activities:
         st.markdown(f"- {activity}")
-
 
 def create_settings_tab(student, family_info):
     """Settings and preferences tab"""
@@ -2753,7 +2755,6 @@ def create_settings_tab(student, family_info):
         st.checkbox("Career guidance suggestions", value=False, key=f"reminder3_{student['id']}")
         st.checkbox("Weekly progress summaries", value=True, key=f"reminder4_{student['id']}")
 
-
 def main():
     """Enhanced main application"""
 
@@ -2781,7 +2782,6 @@ def main():
             create_family_login()
     else:
         create_comprehensive_family_interface(st.session_state.authenticated_family)
-
 
 if __name__ == "__main__":
     main()
