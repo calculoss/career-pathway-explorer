@@ -742,14 +742,33 @@ class CanvasIntegrator:
         except Exception as e:
             return []
 
+    # REPLACE your CanvasIntegrator save_study_milestones method with this version that creates the table:
+
     def save_study_milestones(self, student_id: str, assignment_id: str, assignment_name: str, milestones: list):
-        """Save study milestones for an assignment - DEBUG VERSION"""
+        """Save study milestones for an assignment - FIXED with table creation"""
         try:
             print(f"🔍 SAVE DEBUG: Starting save for {len(milestones)} milestones")
             print(f"🔍 SAVE DEBUG: student_id={student_id}, assignment_id={assignment_id}")
 
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+
+            # ENSURE TABLE EXISTS - Create it if missing
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS study_milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    student_id TEXT,
+                    assignment_id TEXT,
+                    assignment_name TEXT,
+                    title TEXT,
+                    description TEXT,
+                    target_date TEXT,
+                    completed BOOLEAN DEFAULT FALSE,
+                    created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            print("🔍 SAVE DEBUG: Ensured study_milestones table exists")
 
             # Clear existing milestones for this assignment
             cursor.execute('''
@@ -803,11 +822,28 @@ class CanvasIntegrator:
             traceback.print_exc()
             return False
 
+    # ALSO UPDATE your get_study_milestones method to ensure table exists:
+
     def get_study_milestones(self, student_id: str, assignment_id: str):
-        """Get study milestones for an assignment - FIXED VERSION"""
+        """Get study milestones for an assignment - FIXED with table creation"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+
+            # ENSURE TABLE EXISTS
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS study_milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    student_id TEXT,
+                    assignment_id TEXT,
+                    assignment_name TEXT,
+                    title TEXT,
+                    description TEXT,
+                    target_date TEXT,
+                    completed BOOLEAN DEFAULT FALSE,
+                    created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
 
             cursor.execute('''
                 SELECT title, description, target_date, completed
@@ -832,6 +868,67 @@ class CanvasIntegrator:
         except Exception as e:
             print(f"❌ Error retrieving milestones: {str(e)}")
             return []
+
+    # OPTIONAL: Also fix your CanvasIntegrator __init__ method to ensure tables are created:
+    def __init__(self, db_path="community_career_explorer.db"):
+        self.db_path = db_path
+        self.init_canvas_tables()  # Make sure this gets called
+
+    def init_canvas_tables(self):
+        """Initialize Canvas tables if they don't exist - COMPLETE VERSION"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Canvas credentials table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                canvas_url TEXT,
+                access_token TEXT,
+                student_name TEXT,
+                canvas_user_id TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                last_sync DATETIME,
+                UNIQUE(student_id)
+            )
+        ''')
+
+        # Canvas assignments table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS canvas_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                course_name TEXT,
+                assignment_name TEXT,
+                due_date DATETIME,
+                points_possible REAL,
+                description TEXT,
+                html_url TEXT,
+                is_quiz BOOLEAN DEFAULT FALSE,
+                UNIQUE(student_id, assignment_id)
+            )
+        ''')
+
+        # Study milestones table - ENSURE IT'S CREATED HERE TOO
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS study_milestones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT,
+                assignment_id TEXT,
+                assignment_name TEXT,
+                title TEXT,
+                description TEXT,
+                target_date TEXT,
+                completed BOOLEAN DEFAULT FALSE,
+                created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        conn.commit()
+        conn.close()
+        print("✅ All Canvas tables initialized successfully")
 
 class SecureFamilyCareerAgent:
     def __init__(self):
