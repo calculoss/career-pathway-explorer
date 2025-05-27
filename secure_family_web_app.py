@@ -2197,7 +2197,7 @@ def show_canvas_dashboard(student, canvas):
                     st.error(f"Sync failed: {sync_result['message']}")
 
     # Show assignments
-    show_assignments_list_with_study_plans(student, canvas)
+    show_assignments_list_with_study_plans(student, canvas) #change made
 
 def get_assignment_counts(student, canvas):
     """Get assignment counts for user feedback"""
