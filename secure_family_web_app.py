@@ -1329,68 +1329,256 @@ def create_comprehensive_family_interface(family_info):
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+
 def create_career_guidance_tab(student, family_info):
-    """Career guidance tab"""
-    st.markdown("### 🤖 AI Career Guidance")
+    """Enhanced conversational AI career guidance tab"""
+    st.markdown("### 🤖 AI Career Counsellor")
 
-    interests_text = ', '.join(student['interests'][:2]) if student['interests'] else 'their interests'
+    # Initialize conversation memory
+    if f"career_conversation_{student['id']}" not in st.session_state:
+        st.session_state[f"career_conversation_{student['id']}"] = []
 
-    user_input = st.text_area(
-        "Ask your career question:",
-        placeholder=f"e.g., 'What university courses align with {student['name']}'s interest in {interests_text}?' or 'What are the current job prospects in their field?'",
-        height=100,
-        key=f"career_input_{student['id']}"
-    )
+    conversation_history = st.session_state[f"career_conversation_{student['id']}"]
 
-    if st.button("🚀 Get AI Career Guidance", use_container_width=True, key=f"career_btn_{student['id']}"):
-        if user_input.strip():
-            with st.spinner("🤖 AI Career Counsellor is thinking..."):
-                st.markdown("""
-                <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 16px 0;">
-                    <div style="font-size: 16px; font-weight: 600; color: #1c4980; margin-bottom: 16px;">
-                        🤖 AI Career Counsellor Response
-                    </div>
+    # Display conversation history
+    if conversation_history:
+        st.markdown("#### 💬 Our Conversation")
+
+        for i, exchange in enumerate(conversation_history[-5:]):  # Show last 5 exchanges
+            # User message
+            with st.container():
+                st.markdown(f"""
+                <div style="background: #e3f2fd; border-radius: 8px; padding: 12px; margin: 8px 0; text-align: right;">
+                    <strong>You:</strong> {exchange['user_message']}
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.write(f"""
-                **Career Guidance for {student['name']}:**
+            # AI response
+            with st.container():
+                st.markdown(f"""
+                <div style="background: #f3e5f5; border-radius: 8px; padding: 12px; margin: 8px 0;">
+                    <strong>🤖 Career Counsellor:</strong> {exchange['ai_response']}
+                </div>
+                """, unsafe_allow_html=True)
 
-                Based on {student['name']}'s interests in **{', '.join(student['interests']) if student['interests'] else 'their chosen fields'}** and current Australian employment data:
+    # Input area
+    st.markdown("#### 💭 Continue Our Conversation")
 
-                **🎯 Recommended Career Pathways:**
-                - Analysis of careers matching their interests
-                - Current employment prospects and salary ranges  
-                - University course recommendations for NSW/ACT
+    # Provide conversation starters if this is a new conversation
+    if not conversation_history:
+        st.markdown("**💡 Not sure what to ask? Try one of these:**")
 
-                **📚 Next Steps:**
-                1. Research recommended universities and application requirements
-                2. Plan subject selection for remaining school years
-                3. Attend university open days and career fairs
-                4. Schedule follow-up guidance session
+        starter_questions = [
+            f"I'm interested in {', '.join(student['interests'][:2]) if student['interests'] else 'exploring different careers'} - what career paths could work for me?",
+            f"I'm in Year {student['year_level']} and {student['timeline']} - what should I focus on right now?",
+            "What makes a good career choice? How do I know what's right for me?",
+            f"Tell me about job prospects in {student['interests'][0] if student['interests'] else 'my field of interest'}",
+            "I'm feeling overwhelmed by all the university and career options. Where do I start?"
+        ]
 
-                **📊 Current Market Data:**
-                - Graduate employment rate: 89.1% (Australian average)
-                - Time to employment: 4.2 months average
-                - Field-specific data updated weekly
-                """)
+        for question in starter_questions:
+            if st.button(f"💬 {question}", key=f"starter_{hash(question)}", use_container_width=True):
+                # Automatically use this as the user input
+                user_input = question
+                handle_career_conversation(student, family_info, user_input, conversation_history)
+                st.rerun()
 
-                # Save conversation
-                try:
-                    db = st.session_state.secure_db
-                    db.save_conversation(
-                        family_info['id'],
-                        student['id'],
-                        student['name'],
-                        user_input,
-                        "AI career guidance response provided",
-                        ['career_guidance']
-                    )
-                    st.success("✅ Conversation saved to your family records.")
-                except Exception as e:
-                    st.warning(f"Conversation not saved: {str(e)}")
+    # Manual input
+    user_input = st.text_area(
+        "What would you like to discuss about your career journey?",
+        placeholder=f"e.g., 'I've been thinking about {student['interests'][0] if student['interests'] else 'my future'}, but I'm not sure if it's the right path...'" if not conversation_history else "Continue our conversation...",
+        height=80,
+        key=f"career_input_{student['id']}"
+    )
+
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        if st.button("🚀 Send Message", use_container_width=True, key=f"send_career_{student['id']}"):
+            if user_input.strip():
+                handle_career_conversation(student, family_info, user_input, conversation_history)
+                st.rerun()
+            else:
+                st.warning("Please enter a message before sending.")
+
+    with col2:
+        if st.button("🔄 New Topic", use_container_width=True, key=f"new_topic_{student['id']}", type="secondary"):
+            # Clear conversation history
+            st.session_state[f"career_conversation_{student['id']}"] = []
+            st.rerun()
+
+
+def handle_career_conversation(student, family_info, user_input, conversation_history):
+    """Handle the conversational AI career guidance"""
+
+    # Get the AI agent
+    if 'career_agent' not in st.session_state:
+        st.session_state.career_agent = SecureFamilyCareerAgent()
+
+    agent = st.session_state.career_agent
+
+    if not agent.client:
+        st.error("AI service not available. Please check your API key configuration.")
+        return
+
+    with st.spinner("🤖 Your career counsellor is thinking..."):
+        try:
+            # Build conversational context
+            system_prompt = create_conversational_system_prompt(student, conversation_history)
+
+            # Create conversation messages for the AI
+            messages = [{"role": "user", "content": system_prompt}]
+
+            # Add conversation history (last 10 exchanges to stay within token limits)
+            for exchange in conversation_history[-5:]:
+                messages.append({"role": "user", "content": exchange['user_message']})
+                messages.append({"role": "assistant", "content": exchange['ai_response']})
+
+            # Add current user message
+            messages.append({"role": "user", "content": user_input})
+
+            # Get AI response
+            response = agent.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1500,
+                messages=messages
+            )
+
+            ai_response = response.content[0].text
+
+            # Add to conversation history
+            conversation_history.append({
+                'user_message': user_input,
+                'ai_response': ai_response,
+                'timestamp': datetime.now().isoformat()
+            })
+
+            # Save to database
+            try:
+                db = st.session_state.secure_db
+                db.save_conversation(
+                    family_info['id'],
+                    student['id'],
+                    student['name'],
+                    user_input,
+                    ai_response,
+                    extract_conversation_topics(user_input, ai_response)
+                )
+            except Exception as e:
+                st.warning(f"Conversation not saved to database: {str(e)}")
+
+        except Exception as e:
+            st.error(f"Sorry, I encountered an error: {str(e)}. Please try again.")
+
+
+def create_conversational_system_prompt(student, conversation_history):
+    """Create a dynamic system prompt for conversational career guidance"""
+
+    # Get previous conversation context
+    conversation_context = ""
+    if conversation_history:
+        recent_topics = []
+        for exchange in conversation_history[-3:]:
+            if any(word in exchange['user_message'].lower() for word in ['university', 'course', 'degree']):
+                recent_topics.append("university planning")
+            if any(word in exchange['user_message'].lower() for word in ['career', 'job', 'work']):
+                recent_topics.append("career exploration")
+            if any(word in exchange['user_message'].lower() for word in ['worried', 'stressed', 'overwhelmed']):
+                recent_topics.append("anxiety/concerns")
+
+        if recent_topics:
+            conversation_context = f"\n\nCONVERSATION CONTEXT: We've been discussing {', '.join(set(recent_topics))}. Build on this naturally."
+
+    return f"""You are an experienced, warm, and insightful career counsellor specializing in Australian secondary school students. You're having an ongoing conversation with {student['name']}, building rapport and providing personalized career guidance.
+
+STUDENT PROFILE - {student['name']}:
+- Age: {student.get('age', 'Not specified')}
+- Year Level: Year {student.get('year_level', 'Not specified')}
+- Interests: {', '.join(student.get('interests', [])) if student.get('interests') else 'Still exploring'}
+- University Timeline: {student.get('timeline', 'Not specified')}
+- Location Preference: {student.get('location_preference', 'Not specified')}
+- Goals: {', '.join(student.get('goals', [])) if student.get('goals') else 'Still developing'}
+
+CURRENT NSW/ACT CONTEXT (2025):
+- Newcastle, Macquarie, Sydney, UNSW, ANU are key universities
+- Strong job market in health, education, technology, trades
+- ATAR requirements vary: 70-99+ depending on course/uni
+- Army Reserves education benefits available
+- Graduate employment rate: ~89% overall
+
+YOUR CONVERSATION APPROACH:
+1. **Be conversational and warm** - like talking to a trusted mentor
+2. **Ask probing follow-up questions** - help them think deeper
+3. **Reference their specific interests/situation** - make it personal
+4. **Share specific, actionable insights** - real university names, ATAR ranges, course details
+5. **Balance optimism with realism** - honest about challenges and opportunities
+6. **Encourage reflection** - "What excites you most about that?" "How does that align with your values?"
+
+CONVERSATION TECHNIQUES:
+- Use their name naturally in conversation
+- Ask "What if..." and "How do you feel about..." questions  
+- Share specific examples: "Students like you often thrive in..."
+- Reference NSW/ACT opportunities specifically
+- Connect their interests to real career paths and university courses
+- Acknowledge any concerns or emotions they express
+
+REMEMBER:
+- This is an ongoing conversation - reference what you've discussed before
+- Be encouraging but honest about effort required
+- Provide specific next steps they can take
+- Keep responses conversational (150-300 words), not essay-like
+- End with a thoughtful question to continue the dialogue
+
+{conversation_context}
+
+Respond as their career counsellor, continuing this natural conversation."""
+
+
+def extract_conversation_topics(user_message, ai_response):
+    """Extract topic tags from the conversation for database storage"""
+    topics = []
+    combined_text = (user_message + " " + ai_response).lower()
+
+    topic_keywords = {
+        'university_planning': ['university', 'uni', 'degree', 'course', 'atar', 'application'],
+        'career_exploration': ['career', 'job', 'work', 'profession', 'field'],
+        'subject_selection': ['subject', 'hsc', 'prerequisite', 'year 11', 'year 12'],
+        'anxiety_support': ['worried', 'stressed', 'overwhelmed', 'confused', 'pressure'],
+        'goal_setting': ['goal', 'plan', 'future', 'dream', 'aspiration'],
+        'skills_interests': ['interest', 'passion', 'skill', 'strength', 'talent'],
+        'pathways': ['pathway', 'option', 'choice', 'alternative', 'route']
+    }
+
+    for topic, keywords in topic_keywords.items():
+        if any(keyword in combined_text for keyword in keywords):
+            topics.append(topic)
+
+    return topics if topics else ['general_career_guidance']
+
+
+# ALSO UPDATE your SecureFamilyCareerAgent class to ensure it has proper AI capabilities:
+
+class SecureFamilyCareerAgent:
+    def __init__(self):
+        try:
+            # Try secrets first (for deployed apps)
+            api_key = st.secrets["ANTHROPIC_API_KEY"]
+        except:
+            # Fall back to environment variable
+            load_dotenv()
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+
+        if api_key:
+            self.client = anthropic.Anthropic(api_key=api_key)
         else:
-            st.warning("Please enter a question before submitting.")
+            self.client = None
+            st.warning("⚠️ AI features require an Anthropic API key. Please configure your API key.")
+
+        if 'secure_db' not in st.session_state:
+            st.session_state.secure_db = MultiFamilyDatabase()
+        self.db = st.session_state.secure_db
+
+    # ... (keep your existing AI study planning methods)
 
 def create_canvas_integration_tab(student):
     """Canvas integration with AI study planning"""
