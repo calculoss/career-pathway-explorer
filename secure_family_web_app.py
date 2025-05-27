@@ -743,14 +743,13 @@ class CanvasIntegrator:
             return []
 
     def save_study_milestones(self, student_id: str, assignment_id: str, assignment_name: str, milestones: list):
-        """Save study milestones for an assignment - FIXED VERSION"""
+        """Save study milestones for an assignment - DEBUG VERSION"""
         try:
+            print(f"🔍 SAVE DEBUG: Starting save for {len(milestones)} milestones")
+            print(f"🔍 SAVE DEBUG: student_id={student_id}, assignment_id={assignment_id}")
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
-            # DEBUG: Print what we're trying to save
-            print(f"🔍 Saving milestones for student {student_id}, assignment {assignment_id}")
-            print(f"🔍 Number of milestones: {len(milestones)}")
 
             # Clear existing milestones for this assignment
             cursor.execute('''
@@ -759,16 +758,15 @@ class CanvasIntegrator:
             ''', (student_id, assignment_id))
 
             rows_deleted = cursor.rowcount
-            print(f"🔍 Deleted {rows_deleted} existing milestones")
+            print(f"🔍 SAVE DEBUG: Deleted {rows_deleted} existing milestones")
 
             # Insert new milestones
             for i, milestone in enumerate(milestones):
-                print(f"🔍 Inserting milestone {i}: {milestone}")
-
-                # Extract milestone data safely
                 title = milestone.get('title', f'Milestone {i + 1}')
                 description = milestone.get('description', '')
                 target_date = milestone.get('target_date', '')
+
+                print(f"🔍 SAVE DEBUG: Inserting milestone {i}: {title}")
 
                 cursor.execute('''
                     INSERT INTO study_milestones
@@ -781,7 +779,7 @@ class CanvasIntegrator:
                     title,
                     description,
                     target_date,
-                    False  # New milestones start as incomplete
+                    False
                 ))
 
             conn.commit()
@@ -793,14 +791,16 @@ class CanvasIntegrator:
             ''', (student_id, assignment_id))
 
             saved_count = cursor.fetchone()[0]
-            print(f"🔍 Verified {saved_count} milestones saved")
+            print(f"🔍 SAVE DEBUG: Verified {saved_count} milestones saved")
 
             conn.close()
 
-            return saved_count == len(milestones)  # Return True only if all milestones saved
+            return saved_count == len(milestones)
 
         except Exception as e:
-            print(f"❌ Error saving milestones: {str(e)}")
+            print(f"❌ SAVE ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def get_study_milestones(self, student_id: str, assignment_id: str):
@@ -1924,19 +1924,59 @@ def show_ai_study_planning_dated(student, assignment, assignment_index):
         if st.button(f"💾 Save Study Plan ({len(selected_milestones)} milestones)",
                      key=f"save_plan_{unique_id}", use_container_width=True):
             if selected_milestones:
+                # DEBUG: Show what we're trying to save
+                st.write("🔍 **DEBUG INFO:**")
+                st.write(f"Student ID: {student['id']}")
+                st.write(f"Assignment: {assignment}")
+                st.write(f"Selected milestones: {selected_milestones}")
+
                 canvas = st.session_state.canvas_integrator
+                assignment_id_to_use = assignment.get('assignment_id', f"assignment_dated_{assignment_index}")
+                assignment_name = assignment.get('name', 'Assignment')
+
+                st.write(f"Using assignment_id: {assignment_id_to_use}")
+                st.write(f"Assignment name: {assignment_name}")
+
+                # Test database connection first
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(canvas.db_path)
+                    cursor = conn.cursor()
+
+                    # Check if table exists
+                    cursor.execute("""
+                        SELECT name FROM sqlite_master 
+                        WHERE type='table' AND name='study_milestones'
+                    """)
+                    table_exists = cursor.fetchone()
+                    st.write(f"study_milestones table exists: {table_exists is not None}")
+
+                    if table_exists:
+                        # Check table structure
+                        cursor.execute("PRAGMA table_info(study_milestones)")
+                        columns = cursor.fetchall()
+                        st.write(f"Table columns: {columns}")
+
+                    conn.close()
+
+                except Exception as e:
+                    st.error(f"Database connection error: {e}")
+
+                # Try to save
                 success = canvas.save_study_milestones(
                     student['id'],
-                    assignment.get('assignment_id', f"assignment_dated_{assignment_index}"),
-                    assignment.get('name', 'Assignment'),
+                    assignment_id_to_use,
+                    assignment_name,
                     selected_milestones
                 )
+
+                st.write(f"Save result: {success}")
 
                 if success:
                     st.session_state[f"saved_plan_{unique_id}"] = selected_milestones
                     st.success(f"✅ Study plan saved with {len(selected_milestones)} milestones!")
                 else:
-                    st.error("Failed to save study plan")
+                    st.error("❌ Failed to save study plan - check debug info above")
             else:
                 st.warning("Please select at least one milestone")
 
