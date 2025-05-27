@@ -1292,7 +1292,7 @@ def create_canvas_integration_tab(student):
 
 
 def show_assignments_list_with_study_plans(student, canvas):
-    """Enhanced assignments list with study plan indicators"""
+    """Enhanced assignments list with study plan indicators - FIXED DATE HANDLING"""
 
     # Get filter values
     days_filter, course_filter, type_filter = show_assignment_filters(student)
@@ -1304,36 +1304,43 @@ def show_assignments_list_with_study_plans(student, canvas):
         st.info("📚 No assignments found. Click 'Sync Now' to get your latest Canvas assignments.")
         return
 
-    # Filter assignments (same logic as before)
+    # Filter assignments with SAFE date handling
     current_time = datetime.now()
     filtered_assignments = []
 
     for assignment in assignments:
         try:
             due_date_str = assignment.get('due_date')
-            has_due_date = False
+            due_date = None  # Initialize as None
 
+            # SAFE date parsing
             if due_date_str:
                 try:
                     if isinstance(due_date_str, str):
                         clean_date_str = due_date_str.replace('Z', '').replace('+00:00', '')
                         due_date = datetime.fromisoformat(clean_date_str)
                         assignment['parsed_due_date'] = due_date
-                        has_due_date = True
+                    elif isinstance(due_date_str, datetime):
+                        due_date = due_date_str
+                        assignment['parsed_due_date'] = due_date
                 except Exception:
-                    pass
+                    due_date = None
+                    assignment['parsed_due_date'] = None
 
-            if has_due_date:
+            # Apply TIME filter - ONLY if we have a valid due date
+            if due_date:
                 days_until_due = (due_date - current_time).days
                 if days_until_due > days_filter or days_until_due < -30:
-                    continue
+                    continue  # Skip assignments outside time range
+            # If no due date, include it (will be handled separately)
 
-            # Apply other filters (course, type)
+            # Apply COURSE filter
             if course_filter != "All Courses":
                 assignment_course = assignment.get('course', 'Unknown Course')
                 if assignment_course != course_filter:
                     continue
 
+            # Apply TYPE filter
             assignment_category = categorize_assignment(assignment)
             if type_filter == "Assessment Tasks Only" and assignment_category != "Assessment Tasks":
                 continue
@@ -1344,11 +1351,20 @@ def show_assignments_list_with_study_plans(student, canvas):
 
             filtered_assignments.append(assignment)
 
-        except Exception:
+        except Exception as e:
+            # If any error, skip this assignment but log it
+            st.warning(f"Skipped assignment due to error: {str(e)}")
             continue
 
-    # Sort by due date
-    filtered_assignments.sort(key=lambda x: x.get('parsed_due_date', datetime.now()))
+    # Sort by due date - handle None dates safely
+    def safe_sort_key(assignment):
+        due_date = assignment.get('parsed_due_date')
+        if due_date:
+            return due_date
+        else:
+            return datetime.max  # Put assignments without dates at the end
+
+    filtered_assignments.sort(key=safe_sort_key)
 
     # Show summary
     st.markdown(f"""
@@ -1368,21 +1384,31 @@ def show_assignments_list_with_study_plans(student, canvas):
             study_plan_info = get_assignment_study_plan_summary(canvas, student['id'], assignment)
 
             due_date = assignment.get('parsed_due_date')
-            days_until_due = (due_date - current_time).days
 
-            # Calculate urgency
-            if days_until_due < 0:
-                urgency_class = "overdue"
-                urgency_text = "OVERDUE"
-                urgency_badge_class = "urgency-overdue"
-            elif days_until_due <= 3:
-                urgency_class = "due-soon"
-                urgency_text = "DUE SOON"
-                urgency_badge_class = "urgency-soon"
+            # SAFE urgency calculation
+            if due_date:
+                days_until_due = (due_date - current_time).days
+
+                if days_until_due < 0:
+                    urgency_class = "overdue"
+                    urgency_text = "OVERDUE"
+                    urgency_badge_class = "urgency-overdue"
+                elif days_until_due <= 3:
+                    urgency_class = "due-soon"
+                    urgency_text = "DUE SOON"
+                    urgency_badge_class = "urgency-soon"
+                else:
+                    urgency_class = "future"
+                    urgency_text = "FUTURE"
+                    urgency_badge_class = "urgency-future"
+
+                due_date_display = due_date.strftime('%Y-%m-%d %H:%M')
             else:
+                # Handle assignments without due dates
                 urgency_class = "future"
-                urgency_text = "FUTURE"
+                urgency_text = "NO DATE"
                 urgency_badge_class = "urgency-future"
+                due_date_display = "Date TBD"
 
             # Create enhanced assignment container
             with st.container():
@@ -1393,7 +1419,6 @@ def show_assignments_list_with_study_plans(student, canvas):
                     course_name = assignment.get('course', 'Unknown Course')
                     points = assignment.get('points', 0)
                     assignment_type = assignment.get('type', 'Assignment')
-                    due_date_display = due_date.strftime('%Y-%m-%d %H:%M')
 
                     # Build study plan status display
                     study_plan_html = ""
@@ -1403,9 +1428,11 @@ def show_assignments_list_with_study_plans(student, canvas):
 
                         if next_milestone:
                             next_milestone_text = f"Next: {next_milestone['title']} ({next_milestone['target_date']})"
-                            if next_milestone['days_until_due'] <= 1:
+                            # SAFE milestone urgency calculation
+                            milestone_days = next_milestone.get('days_until_due', 999)
+                            if milestone_days <= 1:
                                 next_milestone_class = "urgency-overdue"
-                            elif next_milestone['days_until_due'] <= 3:
+                            elif milestone_days <= 3:
                                 next_milestone_class = "urgency-soon"
                             else:
                                 next_milestone_class = "urgency-future"
@@ -1424,7 +1451,7 @@ def show_assignments_list_with_study_plans(student, canvas):
                                 </div>
                             </div>
                             <div style="font-size: 13px; color: #075985; margin-top: 4px;">
-                                <span class="urgency-badge {next_milestone_class}" style="font-size: 11px; padding: 2px 6px;">{next_milestone_text}</span>
+                                <span style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{next_milestone_text}</span>
                             </div>
                         </div>
                         """
@@ -1453,28 +1480,34 @@ def show_assignments_list_with_study_plans(student, canvas):
 
                         # Quick complete milestone button for next milestone
                         if study_plan_info['next_milestone']:
-                            if st.button(f"✅ Complete:\n{study_plan_info['next_milestone']['title'][:20]}...",
+                            milestone_title = study_plan_info['next_milestone']['title']
+                            short_title = milestone_title[:20] + "..." if len(milestone_title) > 20 else milestone_title
+                            if st.button(f"✅ Complete:\n{short_title}",
                                          key=f"complete_milestone_{i}", use_container_width=True, type="secondary"):
-                                complete_milestone(canvas, student['id'], assignment, study_plan_info['next_milestone'])
-                                st.success(f"✅ Completed: {study_plan_info['next_milestone']['title']}")
-                                st.rerun()
+                                success = complete_milestone(canvas, student['id'], assignment,
+                                                             study_plan_info['next_milestone'])
+                                if success:
+                                    st.success(f"✅ Completed: {milestone_title}")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to complete milestone")
                     else:
                         # Show "Create Study Plan" button
                         if st.button(f"🤖 Study Plan", key=f"study_plan_btn_{i}", use_container_width=True):
                             st.session_state[f"show_study_plan_{student['id']}_dated_{i}"] = True
                             st.rerun()
 
-                # AI Study Planning Interface (same as before, but now contextually triggered)
+                # AI Study Planning Interface (same as before)
                 if st.session_state.get(f"show_study_plan_{student['id']}_dated_{i}", False):
                     show_ai_study_planning_dated(student, assignment, i)
 
         except Exception as e:
-            st.error(f"Error displaying assignment: {str(e)}")
+            st.error(f"Error displaying assignment {i}: {str(e)}")
             continue
 
 
 def get_assignment_study_plan_summary(canvas, student_id, assignment):
-    """Get summary info about study plan for an assignment"""
+    """Get summary info about study plan for an assignment - SAFE DATE HANDLING"""
     try:
         assignment_id = assignment.get('assignment_id', f"assignment_dated_{assignment.get('name', '')}")
         milestones = canvas.get_study_milestones(student_id, assignment_id)
@@ -1493,24 +1526,32 @@ def get_assignment_study_plan_summary(canvas, student_id, assignment):
         completed_milestones = sum(1 for m in milestones if m.get('completed', False))
         progress_percent = int((completed_milestones / total_milestones) * 100) if total_milestones > 0 else 0
 
-        # Find next incomplete milestone
+        # Find next incomplete milestone with SAFE date handling
         next_milestone = None
         current_date = datetime.now().date()
 
         for milestone in milestones:
             if not milestone.get('completed', False):
                 try:
-                    target_date = datetime.strptime(milestone['target_date'], '%Y-%m-%d').date()
-                    days_until_due = (target_date - current_date).days
+                    target_date_str = milestone.get('target_date', '')
+                    if target_date_str:
+                        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+                        days_until_due = (target_date - current_date).days
 
+                        next_milestone = {
+                            'title': milestone['title'],
+                            'target_date': milestone['target_date'],
+                            'days_until_due': days_until_due
+                        }
+                        break  # Get the first incomplete milestone
+                except Exception:
+                    # If date parsing fails, still include the milestone but with safe defaults
                     next_milestone = {
-                        'title': milestone['title'],
-                        'target_date': milestone['target_date'],
-                        'days_until_due': days_until_due
+                        'title': milestone.get('title', 'Milestone'),
+                        'target_date': milestone.get('target_date', 'Date TBD'),
+                        'days_until_due': 999  # Safe default
                     }
-                    break  # Get the first incomplete milestone
-                except:
-                    continue
+                    break
 
         return {
             'has_plan': True,
@@ -1520,7 +1561,7 @@ def get_assignment_study_plan_summary(canvas, student_id, assignment):
             'next_milestone': next_milestone
         }
 
-    except Exception:
+    except Exception as e:
         return {
             'has_plan': False,
             'total': 0,
@@ -1531,34 +1572,29 @@ def get_assignment_study_plan_summary(canvas, student_id, assignment):
 
 
 def complete_milestone(canvas, student_id, assignment, milestone_info):
-    """Mark a milestone as complete"""
+    """Mark a milestone as complete - SAFE IMPLEMENTATION"""
     try:
-        # This would need to be implemented in your CanvasIntegrator class
-        # For now, just update the database directly
         conn = sqlite3.connect(canvas.db_path)
         cursor = conn.cursor()
 
         assignment_id = assignment.get('assignment_id', f"assignment_dated_{assignment.get('name', '')}")
+        milestone_title = milestone_info.get('title', '')
+
+        if not milestone_title:
+            return False
 
         cursor.execute('''
             UPDATE study_milestones 
             SET completed = TRUE 
             WHERE student_id = ? AND assignment_id = ? AND title = ?
-        ''', (student_id, assignment_id, milestone_info['title']))
+        ''', (student_id, assignment_id, milestone_title))
 
         conn.commit()
         conn.close()
-        return True
+        return cursor.rowcount > 0  # Return True if a row was actually updated
 
-    except Exception:
+    except Exception as e:
         return False
-
-
-# UPDATE: Replace your existing show_assignments_list call with this new function
-# In create_canvas_integration_tab, change:
-# show_assignments_list(student, canvas)
-# TO:
-# show_assignments_list_with_study_plans(student, canvas)
 
 def show_assignments_list(student, canvas):
     """Show assignments list with FIXED filtering - only shows assignments with due dates"""
